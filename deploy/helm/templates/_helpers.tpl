@@ -1,14 +1,14 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "webcore.name" -}}
+{{- define "webhull.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Create a default fully qualified app name.
 */}}
-{{- define "webcore.fullname" -}}
+{{- define "webhull.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -24,16 +24,16 @@ Create a default fully qualified app name.
 {{/*
 Create chart label.
 */}}
-{{- define "webcore.chart" -}}
+{{- define "webhull.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels.
 */}}
-{{- define "webcore.labels" -}}
-helm.sh/chart: {{ include "webcore.chart" . }}
-{{ include "webcore.selectorLabels" . }}
+{{- define "webhull.labels" -}}
+helm.sh/chart: {{ include "webhull.chart" . }}
+{{ include "webhull.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -43,28 +43,28 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Base selector labels (name + instance).
 */}}
-{{- define "webcore.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "webcore.name" . }}
+{{- define "webhull.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "webhull.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
 Image tag — uses .Values.image.tag when set, otherwise .Chart.AppVersion.
 */}}
-{{- define "webcore.imageTag" -}}
+{{- define "webhull.imageTag" -}}
 {{- .Values.image.tag | default .Chart.AppVersion }}
 {{- end }}
 
 {{/*
 Gateway name — uses .Values.gateway.name when set, otherwise chart fullname.
 */}}
-{{- define "webcore.gatewayName" -}}
-{{- .Values.gateway.name | default (include "webcore.fullname" .) }}
+{{- define "webhull.gatewayName" -}}
+{{- .Values.gateway.name | default (include "webhull.fullname" .) }}
 {{- end }}
 
 {{/*
 TLS secret name — uses .Values.gateway.tlsSecretName when set, otherwise fullname-tls.
 */}}
-{{- define "webcore.tlsSecretName" -}}
-{{- .Values.gateway.tlsSecretName | default (printf "%s-tls" (include "webcore.fullname" .)) }}
+{{- define "webhull.tlsSecretName" -}}
+{{- .Values.gateway.tlsSecretName | default (printf "%s-tls" (include "webhull.fullname" .)) }}
 {{- end }}
