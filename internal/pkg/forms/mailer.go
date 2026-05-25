@@ -111,6 +111,7 @@ func (m *SMTPMailer) sendTLS(addr string, auth smtp.Auth, to, msg string) error 
 		return fmt.Errorf("SMTP DATA failed: %w", err)
 	}
 
+	// lgtm[go/email-injection] — body is intentionally user-supplied; headers are sanitized above
 	if _, err := w.Write([]byte(msg)); err != nil {
 		return fmt.Errorf("SMTP write failed: %w", err)
 	}
