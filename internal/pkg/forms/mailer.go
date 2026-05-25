@@ -51,14 +51,22 @@ func (m *SMTPMailer) buildMessage(to, subject, body, contentType string) string 
 	}
 
 	msg.WriteString(fmt.Sprintf("From: %s\r\n", fromHeader))
-	msg.WriteString(fmt.Sprintf("To: %s\r\n", to))
-	msg.WriteString(fmt.Sprintf("Subject: %s\r\n", subject))
+	msg.WriteString(fmt.Sprintf("To: %s\r\n", sanitizeHeader(to)))
+	msg.WriteString(fmt.Sprintf("Subject: %s\r\n", sanitizeHeader(subject)))
 	msg.WriteString("MIME-Version: 1.0\r\n")
 	msg.WriteString(fmt.Sprintf("Content-Type: %s; charset=\"utf-8\"\r\n", contentType))
 	msg.WriteString("\r\n")
 	msg.WriteString(body)
 
 	return msg.String()
+}
+
+// sanitizeHeader removes CR and LF characters from an email header value
+// to prevent header injection attacks.
+func sanitizeHeader(s string) string {
+	s = strings.ReplaceAll(s, "\r", "")
+	s = strings.ReplaceAll(s, "\n", "")
+	return s
 }
 
 func (m *SMTPMailer) send(to, msg string) error {
