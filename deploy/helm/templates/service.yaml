@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "webhull.fullname" . }}
+  labels:
+    {{- include "webhull.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+  - port: {{ .Values.service.port }}
+    targetPort: {{ .Values.service.targetPort }}
+    protocol: TCP
+    name: http
+  {{- if .Values.metricsService.enabled }}
+  - port: {{ .Values.metricsService.port }}
+    targetPort: health
+    protocol: TCP
+    name: metrics
+  {{- end }}
+  selector:
+    {{- include "webhull.selectorLabels" . | nindent 4 }}

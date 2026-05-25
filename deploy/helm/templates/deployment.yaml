@@ -1,0 +1,115 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "webhull.fullname" . }}
+  labels:
+    {{- include "webhull.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicas }}
+  {{- end }}
+  strategy:
+    {{- toYaml .Values.strategy | nindent 4 }}
+  selector:
+    matchLabels:
+      {{- include "webhull.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        {{- if .Values.config }}
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- end }}
+      labels:
+        {{- include "webhull.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: {{ .Values.securityContext.runAsNonRoot }}
+        fsGroup: {{ .Values.securityContext.fsGroup }}
+      containers:
+      - name: webhull
+        image: "{{ .Values.image.repository }}:{{ include "webhull.imageTag" . }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        args:
+          - "-config"
+          - "/app/config/config.yaml"
+          - "-pages"
+          - "/app/site/pages.yaml"
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        - name: health
+          containerPort: 8082
+          protocol: TCP
+        {{- with .Values.env }}
+        env:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        livenessProbe:
+          {{- toYaml .Values.livenessProbe | nindent 10 }}
+        readinessProbe:
+          {{- toYaml .Values.readinessProbe | nindent 10 }}
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
+        securityContext:
+          runAsUser: {{ .Values.securityContext.runAsUser }}
+          allowPrivilegeEscalation: {{ .Values.securityContext.allowPrivilegeEscalation }}
+          readOnlyRootFilesystem: {{ .Values.securityContext.readOnlyRootFilesystem }}
+          capabilities:
+            {{- toYaml .Values.securityContext.capabilities | nindent 12 }}
+        volumeMounts:
+        {{- if .Values.config }}
+        - name: app-config
+          mountPath: /app/config
+          readOnly: true
+        {{- end }}
+        {{- range .Values.configMaps }}
+        - name: configmap-{{ .name }}
+          mountPath: {{ .mountPath }}
+          readOnly: true
+        {{- end }}
+        {{- range .Values.secrets }}
+        - name: secret-{{ .name }}
+          mountPath: {{ .mountPath }}
+          readOnly: true
+        {{- end }}
+      volumes:
+      {{- if .Values.config }}
+      - name: app-config
+        configMap:
+          name: {{ include "webhull.fullname" . }}-config
+      {{- end }}
+      {{- range .Values.configMaps }}
+      - name: configmap-{{ .name }}
+        configMap:
+          name: {{ .name }}
+          {{- if .items }}
+          items:
+            {{- toYaml .items | nindent 10 }}
+          {{- end }}
+      {{- end }}
+      {{- range .Values.secrets }}
+      - name: secret-{{ .name }}
+        secret:
+          secretName: {{ .name }}
+          {{- if .items }}
+          items:
+            {{- toYaml .items | nindent 10 }}
+          {{- end }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

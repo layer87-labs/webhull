@@ -1,0 +1,79 @@
+package templates
+
+// Layout renders the full HTML page with head, body, header, content, footer, and consent banner.
+templ Layout(data *PageData) {
+	<!DOCTYPE html>
+	<html lang={ data.LangCode() }>
+	<head>
+		<meta charset="UTF-8"/>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+		<title>{ data.Meta.Title }</title>
+		if data.Meta.Description != "" {
+			<meta name="description" content={ data.Meta.Description }/>
+		}
+		if data.Meta.Keywords != "" {
+			<meta name="keywords" content={ data.Meta.Keywords }/>
+		}
+		if data.Meta.NoIndex {
+			<meta name="robots" content="noindex, nofollow"/>
+		}
+		if data.Meta.CanonicalURL != "" {
+			<link rel="canonical" href={ data.Meta.CanonicalURL }/>
+		}
+		for _, hl := range data.Meta.Hreflang {
+			<link rel="alternate" hreflang={ hl.Lang } href={ hl.Href }/>
+		}
+		if data.Meta.OGTitle != "" {
+			<meta property="og:title" content={ data.Meta.OGTitle }/>
+		}
+		if data.Meta.OGDescription != "" {
+			<meta property="og:description" content={ data.Meta.OGDescription }/>
+		}
+		if data.Meta.OGImage != "" {
+			<meta property="og:image" content={ data.Meta.OGImage }/>
+		}
+		if data.Meta.OGType != "" {
+			<meta property="og:type" content={ data.Meta.OGType }/>
+		}
+		if data.Meta.OGUrl != "" {
+			<meta property="og:url" content={ data.Meta.OGUrl }/>
+		}
+		<meta property="og:site_name" content={ data.Site.Name }/>
+		if data.Meta.TwitterCard != "" {
+			<meta name="twitter:card" content={ data.Meta.TwitterCard }/>
+		}
+		if data.Meta.Author != "" {
+			<meta name="author" content={ data.Meta.Author }/>
+		}
+		for _, ld := range data.Meta.JSONLD {
+			@templ.Raw(`<script type="application/ld+json">` + ld + `</script>`)
+		}
+		if data.Site.FaviconPath != "" {
+			<link rel="icon" type="image/webp" href={ data.Site.FaviconPath }/>
+		}
+		<link rel="stylesheet" href={ data.AssetPath("/static/css/style.css") }/>
+		<script src={ data.AssetPath("/static/js/theme-init.js") }></script>
+		if data.Analytics.PlausibleEnabled {
+			<script defer data-domain={ data.Analytics.PlausibleDomain } data-api="/api/event" src="/js/script.js"></script>
+		}
+	</head>
+	<body>
+		@Header(data)
+		{ children... }
+		@Footer(data)
+		if data.ShowConsentBanner() {
+			@ConsentBanner(data.ConsentConfig, data.LangCode())
+		}
+		<script defer src={ data.AssetPath("/static/js/menu.js") }></script>
+		if data.Page != nil && data.Page.Template == "contact" {
+			<script defer src={ data.AssetPath("/static/js/contact.js") }></script>
+		}
+		if data.Analytics.CollectorEnabled {
+			<script defer src={ data.AssetPath("/static/js/analytics.js") }></script>
+		}
+		if data.ConsentConfig != nil && data.ConsentConfig.Enabled {
+			<script defer src={ data.AssetPath("/static/js/consent.js") }></script>
+		}
+	</body>
+	</html>
+}

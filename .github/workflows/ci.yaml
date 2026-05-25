@@ -1,0 +1,142 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: read
+
+jobs:
+  # ── Generate build infos — all other jobs depend on this ────────────────────
+  generate-build-infos:
+    uses: layer87-labs/relctl-action/.github/workflows/generate-build-infos.yml@main
+    secrets:
+      token: ${{ secrets.GITHUB_TOKEN }}
+
+  # ── Build – compile check (linux only, web server not a developer CLI) ───────
+  build:
+    name: Build (linux/${{ matrix.goarch }})
+    runs-on: ubuntu-latest
+    needs: [generate-build-infos]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {goarch: amd64}
+          - {goarch: arm64}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build
+        env:
+          GOOS: linux
+          GOARCH: ${{ matrix.goarch }}
+        run: make ci/build
+
+  # ── Quality gate – fmt, vet, lint, shadow, test, audit ──────────────────────
+  check:
+    name: Quality gate
+    runs-on: ubuntu-latest
+    needs: [generate-build-infos]
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install templ
+        run: go install github.com/a-h/templ/cmd/templ@latest
+
+      - name: Generate
+        run: make generate
+
+      - name: Run full check
+        run: make check
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-report
+          path: build/coverage/coverage.html
+          retention-days: 7
+
+  # ── Helm lint ────────────────────────────────────────────────────────────────
+  helm-lint:
+    name: Helm Lint
+    runs-on: ubuntu-latest
+    needs: [generate-build-infos]
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: azure/setup-helm@v4
+
+      - name: Lint chart
+        run: helm lint deploy/helm/
+
+  # ── CodeQL – static security analysis ───────────────────────────────────────
+  codeql:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    needs: [generate-build-infos]
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: go
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v4
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+
+  # ── Trivy – filesystem vulnerability scan ───────────────────────────────────
+  trivy:
+    name: Trivy Vulnerability Scan
+    runs-on: ubuntu-latest
+    needs: [generate-build-infos]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-results.sarif
+
+      - name: Upload Trivy SARIF results
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
+
+  # ── Dependency Review ────────────────────────────────────────────────────────
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    needs: [generate-build-infos]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v5
+        with:
+          fail-on-severity: high

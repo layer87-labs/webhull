@@ -1,0 +1,5 @@
+# Patterns from the Helm chart documentation
+# https://helm.sh/docs/chart_best_practices/
+.helmignore
+/*.tgz
+dist/

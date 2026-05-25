@@ -1,0 +1,161 @@
+# helm-webhull — Helm values
+#
+# webhull uses a split configuration model:
+#   - config.yaml (ConfigMap, mounted) — operational settings (server, mail, analytics, gate)
+#   - pages.yaml  (baked into image)   — site structure (navigation, ui strings, i18n)
+#
+# All ${VAR:default} references in config.yaml are expanded at runtime.
+# Override values via env vars for true 12-factor configuration.
+#
+# Deploy:
+#   helm install my-site helm/ -n my-namespace
+#
+# Override operational settings via env vars:
+#   env:
+#     - name: PLAUSIBLE_BASE_URL
+#       value: "https://analytics.example.com"
+
+nameOverride: ""
+fullnameOverride: ""
+
+imagePullSecrets: []
+
+replicas: 1
+
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 0
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+image:
+  repository: ghcr.io/layer87/webhull
+  tag: ""          # defaults to .Chart.AppVersion
+  pullPolicy: Always
+
+service:
+  port: 80
+  targetPort: 8080
+
+metricsService:
+  enabled: true
+  port: 8082
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 256Mi
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 65532  # distroless nonroot
+  fsGroup: 65532
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8082
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: 8082
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  timeoutSeconds: 2
+  failureThreshold: 2
+
+# ── Environment Variables ──────────────────────────────────────────────────────
+# Injected into the container. Use these to override ${VAR} references in
+# siteConfig at runtime (12-factor style).
+#
+# Common overrides:
+#   PORT, WEBCORE_ENVIRONMENT, SMTP_HOST, SMTP_USERNAME, SMTP_PASSWORD,
+#   SMTP_FROM, GATE_SECRET, ARCON_GATE_SECRET, PLAUSIBLE_BASE_URL
+env: []
+  # - name: SMTP_HOST
+  #   value: "mail.example.com"
+  # - name: SMTP_PASSWORD
+  #   valueFrom:
+  #     secretKeyRef:
+  #       name: webhull-smtp
+  #       key: password
+
+# Secrets to mount into the container (list of {name, mountPath, items?}).
+secrets: []
+
+# Additional ConfigMaps to mount (list of {name, mountPath, items?}).
+configMaps: []
+
+# ── Operational Config ──────────────────────────────────────────────────────────
+# Rendered as config.yaml ConfigMap and mounted at /app/config/config.yaml.
+# Supports ${VAR:default} env-var expansion at runtime.
+#
+# Contains ONLY operational settings: server, health, mail, analytics, consent,
+# seo, gate. Site structure (pages, navigation, UI strings) is in pages.yaml
+# which is baked into the container image.
+config: {}
+  # server:
+  #   port: "${PORT:8080}"
+  #   host: "0.0.0.0"
+  #   environment: "${WEBCORE_ENVIRONMENT:production}"
+  # analytics:
+  #   plausible:
+  #     enabled: true
+  #     baseURL: "${PLAUSIBLE_BASE_URL:https://analytics.example.com}"
+  #     domain: "example.com"
+  # mail:
+  #   host: "${SMTP_HOST:localhost}"
+  #   username: "${SMTP_USERNAME:}"
+  #   password: "${SMTP_PASSWORD:}"
+
+# ── Autoscaling ────────────────────────────────────────────────────────────────
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+
+# ── Pod Disruption Budget ──────────────────────────────────────────────────────
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+# ── Gateway API ────────────────────────────────────────────────────────────────
+# Creates Gateway + HTTPRoutes + Certificate for the site.
+gateway:
+  enabled: false
+  create: false          # create Gateway resource (false = use shared gateway)
+  name: ""               # gateway name override (default: chart fullname)
+  namespace: "istio-ingress"
+  gatewayClassName: "istio"
+  host: "example.com"
+  tlsSecretName: ""      # auto-derived from fullname if empty
+  sectionNameHttp: "http"      # listener sectionName for HTTP (redirect route)
+  sectionNameHttps: "https"    # listener sectionName for HTTPS (main route)
+  # Additional hostnames (e.g. www redirect)
+  additionalHosts: []
+    # - "www.example.com"
+  annotations: {}
+
+# ── TLS Certificate (cert-manager) ────────────────────────────────────────────
+certificate:
+  enabled: false
+  issuerName: "letsencrypt-production"
+  issuerKind: "ClusterIssuer"

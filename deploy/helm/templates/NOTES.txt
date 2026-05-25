@@ -1,0 +1,21 @@
+web-core {{ .Chart.AppVersion }} deployed successfully.
+
+  HTTP:     http://{{ .Values.gateway.host | default "localhost" }}/
+  Health:   :8082/health
+  Ready:    :8082/ready
+  Metrics:  :8082/metrics
+
+{{- if .Values.config }}
+
+Operational config is mounted from ConfigMap at /app/config/config.yaml.
+Site structure (pages.yaml) is baked into the container image at /app/site/.
+All ${VAR:default} references in config.yaml are expanded at runtime.
+{{- end }}
+
+{{- if .Values.gateway.enabled }}
+
+Gateway API routing is enabled for {{ .Values.gateway.host }}.
+{{- range .Values.gateway.additionalHosts }}
+  Additional host: {{ . }}
+{{- end }}
+{{- end }}

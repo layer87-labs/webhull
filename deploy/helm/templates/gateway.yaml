@@ -1,0 +1,61 @@
+{{- if .Values.gateway.enabled }}
+{{- if .Values.gateway.create }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ include "webhull.gatewayName" . }}
+  namespace: {{ .Values.gateway.namespace }}
+  labels:
+    {{- include "webhull.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-options: "Namespace={{ .Values.gateway.namespace }},ServerSideApply=true"
+    {{- with .Values.gateway.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  gatewayClassName: {{ .Values.gateway.gatewayClassName }}
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+    hostname: {{ .Values.gateway.host | quote }}
+    allowedRoutes:
+      namespaces:
+        from: All
+  - name: https
+    port: 443
+    protocol: HTTPS
+    hostname: {{ .Values.gateway.host | quote }}
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - kind: Secret
+        name: {{ include "webhull.tlsSecretName" . }}
+        namespace: {{ .Release.Namespace }}
+  {{- range .Values.gateway.additionalHosts }}
+  - name: http-{{ . | replace "." "-" }}
+    port: 80
+    protocol: HTTP
+    hostname: {{ . | quote }}
+    allowedRoutes:
+      namespaces:
+        from: All
+  - name: https-{{ . | replace "." "-" }}
+    port: 443
+    protocol: HTTPS
+    hostname: {{ . | quote }}
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - kind: Secret
+        name: {{ include "webhull.tlsSecretName" . }}
+        namespace: {{ .Release.Namespace }}
+  {{- end }}
+{{- end }}
+{{- end }}

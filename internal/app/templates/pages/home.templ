@@ -1,0 +1,213 @@
+package pages
+
+import "github.com/Layer87/web-core/internal/app/templates"
+
+// HomePage renders the home/start page.
+//
+// Body sections can be authored in two ways:
+//
+// 1. Typed ordered sections (recommended for new sites):
+//    Use <!-- section[type,altbg,id=anchor]: Title HTML --> markers in the content
+//    file body. Sections are rendered in declaration order, giving full layout control.
+//    Supported types: "block" (text), "grid" (content cards), "services" (service cards).
+//
+// 2. Legacy named sections (backward-compatible):
+//    Use <!-- section: name --> markers. Sections are rendered in the fixed template
+//    order: products → features → focus → targetGroups → differentiation → surface → services.
+templ HomePage(data *templates.PageData) {
+	@templates.Layout(data) {
+		// Hero section — always driven by frontmatter keys.
+		<section class="hero">
+			<div class="container">
+				<div class="hero-content">
+					<h1 class="hero-title">
+						{ data.Content("heroLine1") }
+						<br/>
+						<span class="gradient-text">{ data.Content("heroLine2") }</span>
+					</h1>
+					if data.HasContent("heroSubtitle") {
+						<p class="hero-subtitle">{ data.Content("heroSubtitle") }</p>
+					}
+					if data.HasContent("heroDescription") {
+						<p class="hero-description">{ data.Content("heroDescription") }</p>
+					}
+					<div class="hero-cta">
+						if data.HasContent("heroCTA1Text") {
+							<a href={ templ.SafeURL(data.Content("heroCTA1Link")) } class="btn btn-gradient">
+								{ data.Content("heroCTA1Text") }
+							</a>
+						}
+						if data.HasContent("heroCTA2Text") {
+							<a href={ templ.SafeURL(data.Content("heroCTA2Link")) } class="btn btn-outline">
+								{ data.Content("heroCTA2Text") }
+							</a>
+						}
+					</div>
+				</div>
+			</div>
+			<div class="hero-bg-gradient"></div>
+		</section>
+
+		// Body sections: flexible ordered rendering when typed section markers are used,
+		// otherwise fall back to the legacy fixed named-key order.
+		if len(data.Page.Sections) > 0 {
+			for _, s := range data.Page.Sections {
+				<section class={ sectionClass(s.Type, s.AltBg) } { sectionIDAttr(s.ID)... }>
+					<div class="container">
+						if s.Title != "" {
+							<div class="section-header">
+								<h2 class="section-title">
+									@templ.Raw(s.Title)
+								</h2>
+							</div>
+						}
+						<div class={ sectionInnerClass(s.Type) }>
+							@templ.Raw(s.Body)
+						</div>
+					</div>
+				</section>
+			}
+		} else {
+			// Legacy fixed-order rendering for sites using named section markers.
+
+			// Products section
+			if data.HasContent("productsTitle") {
+				<section class="content-section">
+					<div class="container">
+						<div class="section-header">
+							<h2 class="section-title">
+								@templ.Raw(data.Content("productsTitle"))
+							</h2>
+						</div>
+						<div class="content-grid">
+							@templ.Raw(data.Content("productsHTML"))
+						</div>
+					</div>
+				</section>
+			}
+
+			// Features section
+			if data.HasContent("featuresTitle") {
+				<section class="services">
+					<div class="container">
+						<div class="section-header">
+							<h2 class="section-title">
+								@templ.Raw(data.Content("featuresTitle"))
+							</h2>
+						</div>
+						<div class="services-grid">
+							@templ.Raw(data.Content("featuresHTML"))
+						</div>
+					</div>
+				</section>
+			}
+
+			// Focus section
+			if data.HasContent("focusTitle") {
+				<section class="content-section">
+					<div class="container">
+						<div class="section-header">
+							<h2 class="section-title">
+								@templ.Raw(data.Content("focusTitle"))
+							</h2>
+						</div>
+						<div class="content-block">
+							@templ.Raw(data.Content("focusHTML"))
+						</div>
+					</div>
+				</section>
+			}
+
+			// Target groups section
+			if data.HasContent("targetGroupsTitle") {
+				<section class="content-section alt-bg">
+					<div class="container">
+						<div class="section-header">
+							<h2 class="section-title">
+								@templ.Raw(data.Content("targetGroupsTitle"))
+							</h2>
+						</div>
+						<div class="content-grid">
+							@templ.Raw(data.Content("targetGroupsHTML"))
+						</div>
+					</div>
+				</section>
+			}
+
+			// Differentiation section
+			if data.HasContent("differentiationTitle") {
+				<section class="content-section">
+					<div class="container">
+						<div class="section-header">
+							<h2 class="section-title">
+								@templ.Raw(data.Content("differentiationTitle"))
+							</h2>
+						</div>
+						<div class="content-block">
+							@templ.Raw(data.Content("differentiationHTML"))
+						</div>
+					</div>
+				</section>
+			}
+
+			// Under the surface section
+			if data.HasContent("surfaceTitle") {
+				<section class="content-section alt-bg">
+					<div class="container">
+						<div class="section-header">
+							<h2 class="section-title">
+								@templ.Raw(data.Content("surfaceTitle"))
+							</h2>
+						</div>
+						<div class="content-block">
+							@templ.Raw(data.Content("surfaceHTML"))
+						</div>
+					</div>
+				</section>
+			}
+
+			// Services section
+			if data.HasContent("servicesTitle") {
+				<section class="content-section">
+					<div class="container">
+						<div class="section-header">
+							<h2 class="section-title">
+								@templ.Raw(data.Content("servicesTitle"))
+							</h2>
+						</div>
+						<div class="content-block">
+							@templ.Raw(data.Content("servicesIntro"))
+						</div>
+						<div class="content-grid" style="margin-top: var(--space-xl)">
+							@templ.Raw(data.Content("servicesHTML"))
+						</div>
+						if data.HasContent("servicesNote") {
+							<p class="note" style="margin-top: var(--space-lg); text-align: center; color: var(--text-secondary);">
+								{ data.Content("servicesNote") }
+							</p>
+						}
+					</div>
+				</section>
+			}
+		}
+
+		// Final CTA section — always driven by frontmatter keys.
+		if data.HasContent("ctaTitle") {
+			<section class="cta-section">
+				<div class="container">
+					<div class="cta-content">
+						<h2>{ data.Content("ctaTitle") }</h2>
+						if data.HasContent("ctaHTML") {
+							@templ.Raw(data.Content("ctaHTML"))
+						}
+						<div class="cta-buttons">
+							<a href={ templ.SafeURL(data.Content("ctaLink")) } class="btn btn-gradient">
+								{ data.Content("ctaText") }
+							</a>
+						</div>
+					</div>
+				</div>
+			</section>
+		}
+	}
+}
