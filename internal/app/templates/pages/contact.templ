@@ -1,0 +1,46 @@
+package pages
+
+import "github.com/layer87-labs/webhull/internal/app/templates"
+
+// ContactPage renders the contact page with hero and contact form.
+templ ContactPage(data *templates.PageData) {
+	@templates.Layout(data) {
+		// Hero
+		<section class="hero hero-small">
+			<div class="container">
+				<div class="hero-content">
+					if data.HasContent("breadcrumb") {
+						<nav class="breadcrumb" aria-label="Breadcrumb">
+							@templ.Raw(data.Content("breadcrumb"))
+						</nav>
+					}
+					<h1 class="hero-title">
+						if data.HasContent("heroTitle") {
+							{ data.Content("heroTitle") }
+						} else {
+							{ data.Content("heroLine1") }
+							if data.HasContent("heroLine2") {
+								<br/>
+								<span class="gradient-text">{ data.Content("heroLine2") }</span>
+							}
+						}
+					</h1>
+					if data.HasContent("heroSubtitle") {
+						<p class="hero-subtitle">{ data.Content("heroSubtitle") }</p>
+					}
+				</div>
+			</div>
+			<div class="hero-bg-gradient"></div>
+		</section>
+
+		// Contact content
+		<main class="content-page">
+			<div class="container">
+				if data.HasContent("body") {
+					@templ.Raw(data.Content("body"))
+				}
+				@templates.ContactForm(data.ResolveContactTexts())
+			</div>
+		</main>
+	}
+}

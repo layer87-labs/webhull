@@ -1,0 +1,60 @@
+package templates
+
+// Footer renders the site footer matching the Layer87 footer structure.
+// Uses footer navigation items organized by the config.
+templ Footer(data *PageData) {
+	<footer class="footer">
+		<div class="container">
+			<div class="footer-content">
+				<div class="footer-section">
+					<div class="logo">
+						if data.Site.LogoPath != "" {
+							<picture>
+								<source srcset={ data.Site.LogoPath } type="image/webp"/>
+								<img src="/static/img/logo.jpeg" alt={ data.Site.Name } class="logo-img" width="40" height="40"/>
+							</picture>
+						}
+					</div>
+					if data.UI.FooterTagline != "" {
+						<p>{ data.UI.FooterTagline }</p>
+					}
+				</div>
+				// Footer navigation items come from config, rendered as link groups
+				for _, item := range data.Footer.Items {
+					<div class="footer-section">
+						<h3>{ item.Title }</h3>
+						if len(item.Children) > 0 {
+							<ul>
+								for _, child := range item.Children {
+									<li>
+										<a href={ templ.SafeURL(child.URL) }>{ child.Title }</a>
+									</li>
+								}
+							</ul>
+						}
+					</div>
+				}
+			</div>
+			<div class="footer-bottom">
+				<p>
+					&copy; { data.Copyright } { data.Site.Name }.
+					if data.UI.AllRights != "" {
+						{ " " }{ data.UI.AllRights }
+					}
+					if data.UI.ImprintURL != "" {
+						{ " · " }
+						<a href={ templ.SafeURL(data.UI.ImprintURL) }>
+							{ data.UI.ImprintLabel }
+						</a>
+					}
+					if data.UI.PrivacyURL != "" {
+						{ " · " }
+						<a href={ templ.SafeURL(data.UI.PrivacyURL) }>
+							{ data.UI.PrivacyLabel }
+						</a>
+					}
+				</p>
+			</div>
+		</div>
+	</footer>
+}

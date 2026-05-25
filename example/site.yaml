@@ -1,0 +1,255 @@
+# site.yaml — monolithic configuration example
+#
+# This single file contains both operational settings and site structure.
+# Suitable for simple deployments and local development.
+#
+# For production, split into:
+#   - config.yaml (operational: server, mail, analytics, gate) — Kubernetes ConfigMap
+#   - pages.yaml  (site structure: identity, i18n, navigation)  — baked into image
+#
+# Run:
+#   webhull -config example/site.yaml
+#
+# All ${VAR:default} references are expanded at runtime from environment variables.
+
+# ── Site identity ─────────────────────────────────────────────────────────────
+
+site:
+  name: "Northgate Software"
+  baseURL: "${BASE_URL:http://localhost:8080}"
+  logoPath: "/static/img/logo.webp"
+  faviconPath: "/static/img/favicon.webp"
+  copyrightStartYear: 2021
+  showLangFlags: true
+
+# ── Internationalisation ──────────────────────────────────────────────────────
+
+i18n:
+  defaultLanguage: "en"
+  languages: ["en", "de"]
+
+# ── Content directory ─────────────────────────────────────────────────────────
+
+contentDir: "example/content"
+
+# ── Server ────────────────────────────────────────────────────────────────────
+
+server:
+  port: "${PORT:8080}"
+  host: "0.0.0.0"
+  environment: "${ENVIRONMENT:development}"
+  readTimeout: 15s
+  writeTimeout: 15s
+  idleTimeout: 60s
+  shutdownTimeout: 30s
+  staticDir: "example/static"
+  cacheMaxAge: 1h
+  staticCacheMaxAge: 8760h   # 1 year — safe because URLs are content-hash cache-busted
+
+# ── Health server ─────────────────────────────────────────────────────────────
+
+health:
+  enabled: false             # set to true and configure port for Kubernetes probes
+  host: "0.0.0.0"
+  port: 9090
+  healthPath: "/health"
+  readyPath: "/ready"
+  metricsPath: "/metrics"
+
+# ── Navigation ────────────────────────────────────────────────────────────────
+
+navigation:
+  header:
+    en:
+      - title: "Services"
+        url: "/services"
+        slug: "services"
+      - title: "About"
+        url: "/about"
+        slug: "about"
+    de:
+      - title: "Leistungen"
+        url: "/leistungen"
+        slug: "leistungen"
+      - title: "Über uns"
+        url: "/ueber-uns"
+        slug: "ueber-uns"
+  footer:
+    en:
+      - title: "Company"
+        url: "#"
+        slug: "company"
+        children:
+          - title: "About"
+            url: "/about"
+            slug: "about"
+          - title: "Contact"
+            url: "/contact"
+            slug: "contact"
+      - title: "Legal"
+        url: "#"
+        slug: "legal"
+        children:
+          - title: "Imprint"
+            url: "/imprint"
+            slug: "imprint"
+          - title: "Privacy"
+            url: "/privacy"
+            slug: "privacy"
+    de:
+      - title: "Unternehmen"
+        url: "#"
+        slug: "unternehmen"
+        children:
+          - title: "Über uns"
+            url: "/ueber-uns"
+            slug: "ueber-uns"
+          - title: "Kontakt"
+            url: "/kontakt"
+            slug: "kontakt"
+      - title: "Rechtliches"
+        url: "#"
+        slug: "rechtliches"
+        children:
+          - title: "Impressum"
+            url: "/impressum"
+            slug: "impressum"
+          - title: "Datenschutz"
+            url: "/datenschutz"
+            slug: "datenschutz"
+
+# ── UI strings ────────────────────────────────────────────────────────────────
+
+ui:
+  en:
+    contactURL: "/contact"
+    contactLabel: "Contact"
+    footerTagline: "Software built to last."
+    allRights: "All rights reserved."
+    imprintURL: "/imprint"
+    imprintLabel: "Imprint"
+    privacyURL: "/privacy"
+    privacyLabel: "Privacy"
+    notFoundTitle: "Page not found"
+    notFoundSubtitle: "The page you are looking for does not exist or has been moved."
+    notFoundButton: "Back to home"
+  de:
+    contactURL: "/kontakt"
+    contactLabel: "Kontakt"
+    footerTagline: "Software, die bleibt."
+    allRights: "Alle Rechte vorbehalten."
+    imprintURL: "/impressum"
+    imprintLabel: "Impressum"
+    privacyURL: "/datenschutz"
+    privacyLabel: "Datenschutz"
+    notFoundTitle: "Seite nicht gefunden"
+    notFoundSubtitle: "Die gesuchte Seite existiert nicht oder wurde verschoben."
+    notFoundButton: "Zur Startseite"
+
+# ── Contact form ──────────────────────────────────────────────────────────────
+
+contact:
+  enabled: true
+  recipientName: "Northgate Software"
+  recipients:
+    - "${CONTACT_EMAIL:hello@example.com}"
+  subject:
+    en: "New message from {{.Name}}: {{.Subject}}"
+    de: "Neue Nachricht von {{.Name}}: {{.Subject}}"
+  maxLinks: 2
+  rateLimit:
+    requests: 3
+    window: 15m
+
+# ── Mail / SMTP ───────────────────────────────────────────────────────────────
+
+mail:
+  host: "${SMTP_HOST:smtp.example.com}"
+  port: 587
+  username: "${SMTP_USERNAME}"
+  password: "${SMTP_PASSWORD}"
+  from: "${SMTP_FROM:noreply@example.com}"
+  fromName: "Northgate Software"
+  useTLS: false
+  templates:
+    en:
+      subject: "We received your message"
+      body: |
+        <p>Hi {{.Name}},</p>
+        <p>Thank you for reaching out. We will get back to you within one business day.</p>
+        <p>Northgate Software</p>
+    de:
+      subject: "Ihre Nachricht ist angekommen"
+      body: |
+        <p>Hallo {{.Name}},</p>
+        <p>vielen Dank für Ihre Nachricht. Wir melden uns innerhalb eines Werktages.</p>
+        <p>Northgate Software</p>
+
+# ── Analytics ─────────────────────────────────────────────────────────────────
+
+analytics:
+  plausible:
+    enabled: false             # set to true and configure domain to enable
+    domain: "${PLAUSIBLE_DOMAIN:example.com}"
+    baseURL: "${PLAUSIBLE_BASE_URL:https://plausible.io}"
+    scriptPath: "/js/script.js"
+
+# ── Consent / GDPR ────────────────────────────────────────────────────────────
+
+consent:
+  enabled: true
+  categories:
+    necessary:
+      required: true
+      default: true
+    analytics:
+      required: false
+      default: false
+  i18n:
+    en:
+      title: "Cookie Settings"
+      description: "We use cookies to operate the website and analyse traffic."
+      acceptAll: "Accept all"
+      rejectAll: "Reject all"
+      customize: "Customize"
+      save: "Save preferences"
+      categories:
+        necessary: "Necessary"
+        analytics: "Analytics"
+    de:
+      title: "Cookie-Einstellungen"
+      description: "Wir verwenden Cookies für den Betrieb der Website und zur Analyse."
+      acceptAll: "Alle akzeptieren"
+      rejectAll: "Alle ablehnen"
+      customize: "Anpassen"
+      save: "Auswahl speichern"
+      categories:
+        necessary: "Notwendig"
+        analytics: "Analyse"
+
+# ── SEO ───────────────────────────────────────────────────────────────────────
+
+seo:
+  defaultOGImage: "/static/img/og/default.webp"
+  defaultTwitterCard: "summary_large_image"
+  globalJsonLD:
+    - |
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Northgate Software",
+        "url": "${BASE_URL:http://localhost:8080}",
+        "logo": "${BASE_URL:http://localhost:8080}/static/img/logo.webp"
+      }
+
+# ── Access gate (optional) ────────────────────────────────────────────────────
+# Remove or set enabled: false to keep the site fully public (default).
+
+gate:
+  enabled: false
+  cookieSecret: "${GATE_SECRET}"
+  cookieName: "gate_session"
+  cookieMaxAge: 24h
+  codes:
+    - code: "cedar-frost-9"
+      label: "Example access code — replace before use"

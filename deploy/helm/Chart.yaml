@@ -1,0 +1,11 @@
+apiVersion: v2
+name: webhull
+description: Helm chart for webhull — multilingual SSR website framework
+type: application
+
+maintainers:
+  - name: Layer87
+
+# version and appVersion are auto-updated from the git tag during release
+version: 0.0.0-PLACEHOLDER
+appVersion: "0.0.0-PLACEHOLDER"

@@ -1,0 +1,13 @@
+name: "webhull CodeQL config"
+
+queries:
+  - uses: security-and-quality
+
+query-filters:
+  # go/email-injection flags the SMTP body write in forms/mailer.go as
+  # a false positive. Headers (To, Subject) are sanitized via
+  # sanitizeHeader() which strips \r and \n before being written.
+  # The message body appears after the \r\n\r\n separator so injecting
+  # headers via body content is not possible with this structure.
+  - exclude:
+      id: go/email-injection

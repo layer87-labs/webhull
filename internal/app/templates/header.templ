@@ -1,0 +1,145 @@
+package templates
+
+import "github.com/layer87-labs/webhull/internal/pkg/navigation"
+
+// Header renders the site header matching the Layer87 navigation structure.
+templ Header(data *PageData) {
+	<nav class="nav">
+		<div class="nav-container">
+			<a href="/" class="logo">
+				if data.Site.LogoPath != "" {
+					<picture>
+						<source srcset={ data.Site.LogoPath } type="image/webp"/>
+						<img src="/static/img/logo.jpeg" alt="" class="logo-img"/>
+					</picture>
+				}
+				<span class="logo-text">{ data.Site.Name }</span>
+			</a>
+			<button class="mobile-menu-toggle" aria-label="Menu">
+				<span></span>
+				<span></span>
+				<span></span>
+			</button>
+			<ul class="nav-links">
+				for _, item := range data.Header.Items {
+					@headerNavItem(item)
+				}
+				<li>
+					<button class="theme-toggle" aria-label="Toggle theme" title="Toggle theme">
+						<svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<circle cx="12" cy="12" r="5"></circle>
+							<line x1="12" y1="1" x2="12" y2="3"></line>
+							<line x1="12" y1="21" x2="12" y2="23"></line>
+							<line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+							<line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+							<line x1="1" y1="12" x2="3" y2="12"></line>
+							<line x1="21" y1="12" x2="23" y2="12"></line>
+							<line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+							<line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+						</svg>
+						<svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+						</svg>
+					</button>
+				</li>
+				if len(data.LangLinks) > 2 {
+					<li class="dropdown lang-dropdown">
+						<a href="#">
+							for _, link := range data.LangLinks {
+								if link.Active {
+									if data.Site.ShowLangFlags {
+										<img src={ "/static/img/flag_" + link.Language.String() + ".svg" } alt="" class="lang-flag"/>
+									}
+									{ langLabel(link.Language.String()) }
+								}
+							}
+						</a>
+						<ul class="dropdown-menu">
+							for _, link := range data.LangLinks {
+								if !link.Active {
+									<li>
+										<a href={ templ.SafeURL(link.URL) } class="lang-switch" hreflang={ link.Language.String() } lang={ link.Language.String() }>
+											if data.Site.ShowLangFlags {
+												<img src={ "/static/img/flag_" + link.Language.String() + ".svg" } alt="" class="lang-flag"/>
+											}
+											{ langLabel(link.Language.String()) }
+										</a>
+									</li>
+								}
+							}
+						</ul>
+					</li>
+				} else {
+					for _, link := range data.LangLinks {
+						if !link.Active {
+							<li>
+								<a href={ templ.SafeURL(link.URL) } class="lang-switch" hreflang={ link.Language.String() } lang={ link.Language.String() }>
+									if data.Site.ShowLangFlags {
+										<img src={ "/static/img/flag_" + link.Language.String() + ".svg" } alt="" class="lang-flag"/>
+									}
+									{ langLabel(link.Language.String()) }
+								</a>
+							</li>
+						}
+					}
+				}
+				if data.UI.ContactURL != "" {
+					<li>
+						<a href={ templ.SafeURL(data.UI.ContactURL) } class="nav-cta">
+							{ data.UI.ContactLabel }
+						</a>
+					</li>
+				}
+			</ul>
+		</div>
+	</nav>
+}
+
+// headerNavItem renders a navigation item with optional dropdown children.
+templ headerNavItem(item navigation.Item) {
+	if len(item.Children) > 0 {
+		<li class="dropdown">
+			<a href={ templ.SafeURL(item.URL) }>{ item.Title }</a>
+			<ul class="dropdown-menu">
+				for _, child := range item.Children {
+					<li>
+						<a href={ templ.SafeURL(child.URL) }>{ child.Title }</a>
+					</li>
+				}
+			</ul>
+		</li>
+	} else {
+		<li>
+			if item.Active {
+				<a href={ templ.SafeURL(item.URL) } aria-current="page">
+					{ item.Title }
+				</a>
+			} else {
+				<a href={ templ.SafeURL(item.URL) }>
+					{ item.Title }
+				</a>
+			}
+		</li>
+	}
+}
+
+// langLabel returns the uppercase label for a language code.
+func langLabel(code string) string {
+	switch code {
+	case "de":
+		return "DE"
+	case "en":
+		return "EN"
+	case "fr":
+		return "FR"
+	case "es":
+		return "ES"
+	case "ca":
+		return "CA"
+	default:
+		if len(code) >= 2 {
+			return code[:2]
+		}
+		return code
+	}
+}

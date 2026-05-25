@@ -1,0 +1,90 @@
+package templates
+
+import "github.com/layer87-labs/webhull/internal/pkg/consent"
+
+// ConsentBanner renders the GDPR cookie consent overlay.
+templ ConsentBanner(config *ConsentBannerData, langCode string) {
+	<div
+		id="consent-banner"
+		class="consent-banner"
+		role="dialog"
+		aria-modal="true"
+		aria-label={ config.Texts.Title }
+		data-lang={ langCode }
+	>
+		<div class="consent-overlay"></div>
+		<div class="consent-dialog">
+			<div class="consent-content">
+				<h2 class="consent-title">{ config.Texts.Title }</h2>
+				<p class="consent-description">{ config.Texts.Description }</p>
+
+				// Category toggles (hidden by default, shown on "Customize")
+				<div id="consent-categories" class="consent-categories" hidden>
+					for _, cat := range config.Categories {
+						@consentCategory(cat)
+					}
+				</div>
+			</div>
+
+			// Initial actions: Accept / Reject + Customize link
+			<div id="consent-actions-initial" class="consent-actions">
+				<button
+					type="button"
+					class="consent-btn consent-btn-accept"
+					data-action="accept-all"
+				>
+					{ config.Texts.AcceptAll }
+				</button>
+				<button
+					type="button"
+					class="consent-btn consent-btn-reject"
+					data-action="reject-all"
+				>
+					{ config.Texts.RejectAll }
+				</button>
+			</div>
+			<div class="consent-customize-link">
+				<button
+					type="button"
+					class="consent-link"
+					data-action="customize"
+				>
+					{ config.Texts.Customize }
+				</button>
+			</div>
+			// Customize actions: Save (shown after expanding categories)
+			<div id="consent-actions-custom" class="consent-actions" hidden>
+				<button
+					type="button"
+					class="consent-btn consent-btn-save"
+					data-action="save"
+				>
+					{ config.Texts.Save }
+				</button>
+			</div>
+		</div>
+	</div>
+}
+
+// consentCategory renders a single category toggle.
+templ consentCategory(cat consent.Category) {
+	<div class="consent-category">
+		<label class="consent-category-label">
+			<input
+				type="checkbox"
+				name={ "consent-" + cat.Key }
+				data-category={ cat.Key }
+				if cat.Required || cat.Default {
+					checked
+				}
+				if cat.Required {
+					disabled
+				}
+			/>
+			<span class="consent-category-name">{ cat.Name }</span>
+			if cat.Required {
+				<span class="consent-category-required">*</span>
+			}
+		</label>
+	</div>
+}

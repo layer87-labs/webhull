@@ -1,0 +1,35 @@
+package pages
+
+import "github.com/layer87-labs/webhull/internal/app/templates"
+
+// NotFoundPage renders a 404 error page with navigation back to the start page.
+templ NotFoundPage(data *templates.PageData) {
+	@templates.Layout(data) {
+		<main class="content-page">
+			<section class="hero hero-small">
+				<div class="container">
+					<div class="hero-content">
+						<h1 class="hero-title">
+							404
+							<br/>
+							<span class="gradient-text">{ data.Content("notFoundTitle") }</span>
+						</h1>
+						if data.HasContent("notFoundSubtitle") {
+							<p class="hero-subtitle">{ data.Content("notFoundSubtitle") }</p>
+						}
+					</div>
+				</div>
+				<div class="hero-bg-gradient"></div>
+			</section>
+			<section class="cta-section">
+				<div class="container">
+					<div class="cta-content">
+						<div class="cta-buttons">
+							<a href="/" class="btn btn-gradient">{ data.Content("notFoundButton") }</a>
+						</div>
+					</div>
+				</div>
+			</section>
+		</main>
+	}
+}

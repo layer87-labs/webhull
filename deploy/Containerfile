@@ -1,0 +1,15 @@
+FROM cgr.dev/chainguard/static:latest
+
+WORKDIR /app
+
+# Binary is built externally and passed in as build context.
+# In CI: downloaded from the per-arch artifact.
+# Locally: built with `make build`.
+COPY --chmod=755 webhull /app/webhull
+
+USER 65532:65532
+
+EXPOSE 8080
+
+ENTRYPOINT ["/app/webhull"]
+CMD ["-config", "/app/config/config.yaml", "-pages", "/app/site/pages.yaml"]

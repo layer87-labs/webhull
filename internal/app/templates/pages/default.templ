@@ -1,0 +1,43 @@
+package pages
+
+import "github.com/layer87-labs/webhull/internal/app/templates"
+
+// DefaultPage renders a generic content page with hero and body content.
+// Supports both heroTitle (single-line) and heroLine1/heroLine2 (two-line) variants.
+templ DefaultPage(data *templates.PageData) {
+	@templates.Layout(data) {
+		// Hero with breadcrumb
+		if data.HasContent("heroTitle") || data.HasContent("heroLine1") {
+			<section class="hero hero-small">
+				<div class="container">
+					<div class="hero-content">
+						<h1 class="hero-title">
+							if data.HasContent("heroTitle") {
+								{ data.Content("heroTitle") }
+							} else {
+								{ data.Content("heroLine1") }
+								if data.HasContent("heroLine2") {
+									<br/>
+									<span class="gradient-text">{ data.Content("heroLine2") }</span>
+								}
+							}
+						</h1>
+						if data.HasContent("heroSubtitle") {
+							<p class="hero-subtitle">{ data.Content("heroSubtitle") }</p>
+						}
+					</div>
+				</div>
+				<div class="hero-bg-gradient"></div>
+			</section>
+		}
+
+		// Main content
+		<main class="content-page">
+			<div class="container">
+				if data.HasContent("body") {
+					@templ.Raw(data.Content("body"))
+				}
+			</div>
+		</main>
+	}
+}
