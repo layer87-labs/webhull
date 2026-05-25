@@ -207,14 +207,14 @@ jobs:
           helm package deploy/helm/ \
             --version "${VERSION}" \
             --app-version "${VERSION}"
-          helm push "helm-webhull-${VERSION}.tgz" \
+          helm push "webhull-${VERSION}.tgz" \
             oci://ghcr.io/layer87-labs/charts
 
       - name: Upload chart artifact
         uses: actions/upload-artifact@v7
         with:
           name: helm-chart
-          path: "helm-webhull-*.tgz"
+          path: "webhull-*.tgz"
           retention-days: 1
 
   # ── Phase 3: Publish all assets to the GitHub release ───────────────────────
