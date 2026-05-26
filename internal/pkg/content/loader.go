@@ -29,6 +29,7 @@ var reservedKeys = map[string]bool{
 	"seo_ogtype":      true,
 	"seo_noindex":     true,
 	"startPage":       true,
+	"slug":            true, // explicit slug override (empty string = root page)
 }
 
 // contentFile represents one parsed HTML file with frontmatter.
@@ -143,8 +144,17 @@ func Load(contentDir string, languages []string, logger *zap.Logger) ([]config.P
 				}
 			}
 
+			// Slug: frontmatter "slug" key wins over filename-derived slug.
+			// An explicit empty string means "serve at root /" (single-page mode).
+			slug := f.Slug
+			if raw, ok := f.Meta["slug"]; ok {
+				if s, ok := raw.(string); ok {
+					slug = s
+				}
+			}
+
 			pageCfg.I18n[f.Lang] = config.PageI18nConfig{
-				Slug:        f.Slug,
+				Slug:        slug,
 				Title:       stringMeta(f.Meta, "title", f.Slug),
 				SEOTitle:    stringMeta(f.Meta, "seo_title", ""),
 				Description: stringMeta(f.Meta, "description", ""),

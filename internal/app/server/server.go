@@ -307,13 +307,21 @@ func (s *Server) setupRoutes() {
 	// --- Protected routes (wrapped in GateMiddleware when gate is active) ---
 	protected := s.protectedRouter()
 
-	// Root redirect (language detection)
-	protected.GET("/", s.I18n.RootRedirect(s.Pages.StartSlugs()))
-	protected.HEAD("/", s.I18n.RootRedirect(s.Pages.StartSlugs()))
+	// Root route: single-page mode renders directly; multi-page mode redirects to start slug.
+	if s.Pages.HasRootPages() {
+		protected.GET("/", s.handleRootPage())
+		protected.HEAD("/", s.handleRootPage())
+	} else {
+		protected.GET("/", s.I18n.RootRedirect(s.Pages.StartSlugs()))
+		protected.HEAD("/", s.I18n.RootRedirect(s.Pages.StartSlugs()))
+	}
 
 	// Page routes — register all slugs from all languages
 	for _, slug := range s.Pages.Slugs() {
 		slug := slug // capture
+		if slug == "" {
+			continue // root already registered above
+		}
 		protected.GET("/"+slug, s.handlePage(slug))
 	}
 

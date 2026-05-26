@@ -49,6 +49,10 @@ type PageData struct {
 	// IsBot indicates if the current request is from a known bot.
 	IsBot bool
 
+	// ContactEnabled indicates whether the contact form is active.
+	// Used by the single-page template to conditionally render the contact section.
+	ContactEnabled bool
+
 	// Assets provides cache-busted asset paths.
 	Assets *assets.Service
 }

@@ -1,0 +1,85 @@
+package pages
+
+import "github.com/layer87-labs/webhull/internal/app/templates"
+
+// SinglePage renders a complete one-page site.
+//
+// The entire site lives at / and is one scrollable HTML document.
+// Sections are defined with typed section markers in the content file:
+//
+//	<!-- section[type,altbg,id=anchor]: Title -->
+//
+// Supported types: "block", "grid", "services".
+// The id=anchor value becomes the HTML id so navigation links can use #anchor.
+//
+// If contact.enabled=true in the site config, a contact form is appended after
+// all content sections at id="contact".
+templ SinglePage(data *templates.PageData) {
+	@templates.Layout(data) {
+		// Hero — driven by frontmatter keys heroLine1/heroLine2 or heroTitle.
+		<section class="hero">
+			<div class="container">
+				<div class="hero-content">
+					<h1 class="hero-title">
+						if data.HasContent("heroTitle") {
+							{ data.Content("heroTitle") }
+						} else {
+							{ data.Content("heroLine1") }
+							if data.HasContent("heroLine2") {
+								<br/>
+								<span class="gradient-text">{ data.Content("heroLine2") }</span>
+							}
+						}
+					</h1>
+					if data.HasContent("heroSubtitle") {
+						<p class="hero-subtitle">{ data.Content("heroSubtitle") }</p>
+					}
+					if data.HasContent("heroDescription") {
+						<p class="hero-description">{ data.Content("heroDescription") }</p>
+					}
+					<div class="hero-cta">
+						if data.HasContent("heroCTA1Text") {
+							<a href={ templ.SafeURL(data.Content("heroCTA1Link")) } class="btn btn-gradient">
+								{ data.Content("heroCTA1Text") }
+							</a>
+						}
+						if data.HasContent("heroCTA2Text") {
+							<a href={ templ.SafeURL(data.Content("heroCTA2Link")) } class="btn btn-outline">
+								{ data.Content("heroCTA2Text") }
+							</a>
+						}
+					</div>
+				</div>
+			</div>
+			<div class="hero-bg-gradient"></div>
+		</section>
+
+		// Content sections — rendered in declaration order from typed section markers.
+		for _, s := range data.Page.Sections {
+			<section class={ sectionClass(s.Type, s.AltBg) } { sectionIDAttr(s.ID)... }>
+				<div class="container">
+					if s.Title != "" {
+						<div class="section-header">
+							<h2 class="section-title">
+								@templ.Raw(s.Title)
+							</h2>
+						</div>
+					}
+					<div class={ sectionInnerClass(s.Type) }>
+						@templ.Raw(s.Body)
+					</div>
+				</div>
+			</section>
+		}
+
+		// Contact section — appended last when contact.enabled=true in site config.
+		// Navigation links should use href="#contact" to scroll here.
+		if data.ContactEnabled {
+			<section class="content-section alt-bg" id="contact">
+				<div class="container">
+					@templates.ContactForm(data.ResolveContactTexts())
+				</div>
+			</section>
+		}
+	}
+}

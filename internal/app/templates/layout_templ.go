@@ -418,7 +418,7 @@ func Layout(data *PageData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if data.Page != nil && data.Page.Template == "contact" {
+		if data.Page != nil && (data.Page.Template == "contact" || data.Page.Template == "single") {
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "<script defer src=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err

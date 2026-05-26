@@ -23,6 +23,71 @@ import (
 	"github.com/layer87-labs/webhull/internal/pkg/seo"
 )
 
+// handleRootPage serves the single root page in single-page mode.
+// It renders the "home" page (with empty slug) in the request's detected language.
+func (s *Server) handleRootPage() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Detect language from i18n middleware context.
+		lang := s.I18n.Default()
+		if lc, exists := c.Get(i18n.ContextKey); exists {
+			if langCtx, ok := lc.(*i18n.LanguageContext); ok {
+				lang = langCtx.Current
+			}
+		}
+
+		page := s.Pages.RootPage(lang)
+		if page == nil {
+			// Fallback to default language root page.
+			page = s.Pages.RootPage(s.I18n.Default())
+		}
+		if page == nil {
+			s.handleNotFound()(c)
+			return
+		}
+
+		// Update i18n context with this page's language and alternates.
+		if lc, exists := c.Get(i18n.ContextKey); exists {
+			if langCtx, ok := lc.(*i18n.LanguageContext); ok {
+				langCtx.Current = page.Language
+				langCtx.Alternates = page.Alternates
+			}
+		}
+
+		// Persist language choice as cookie.
+		c.SetCookie(i18n.CookieName, page.Language.String(), 30*24*3600, "/", "", true, false)
+
+		consentState := consent.StateFromContext(c)
+		data := s.buildPageData(page, consentState)
+
+		html, err := renderTemplate(c.Request.Context(), page.Template, data)
+		if err != nil {
+			s.logger.Error("single-page render failed",
+				zap.String("template", page.Template),
+				zap.Error(err))
+			c.String(http.StatusInternalServerError, "render error")
+			return
+		}
+
+		hash := sha256.Sum256(html)
+		etag := fmt.Sprintf(`"%x"`, hash[:8])
+		c.Header("ETag", etag)
+		if match := c.GetHeader("If-None-Match"); match == etag {
+			c.Status(http.StatusNotModified)
+			return
+		}
+
+		c.Data(http.StatusOK, "text/html; charset=utf-8", html)
+
+		s.Analytics.TrackServerSide(
+			consentState,
+			s.cfg.Site.BaseURL+"/",
+			c.ClientIP(),
+			c.Request.UserAgent(),
+			c.GetHeader("Accept-Language"),
+		)
+	}
+}
+
 // handlePage serves a pre-rendered or dynamically rendered page.
 func (s *Server) handlePage(slug string) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -129,6 +194,7 @@ func (s *Server) buildPageData(page *pages.Page, consentState *consent.State) *t
 		UI:        s.resolveUI(page.Language),
 		Analytics: analyticsData,
 		IsBot:     s.Bot.IsBot(""), // will be set per-request below
+		ContactEnabled: s.cfg.Contact.Enabled,
 		Assets:    s.Assets,
 	}
 }

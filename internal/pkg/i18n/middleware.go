@@ -35,16 +35,23 @@ func (s *Service) Middleware() gin.HandlerFunc {
 }
 
 // resolve determines the language for the current request.
-// Priority: 1. Cookie → 2. Accept-Language header → 3. Default
+// Priority: 1. ?lang query param → 2. Cookie → 3. Accept-Language header → 4. Default
 func (s *Service) resolve(c *gin.Context) Language {
-	// 1. Cookie
+	// 1. ?lang query param — used by language switcher in single-page mode
+	if q := c.Query("lang"); q != "" {
+		if lang, ok := s.DetectFromCookie(q); ok {
+			return lang
+		}
+	}
+
+	// 2. Cookie
 	if cookie, err := c.Cookie(CookieName); err == nil {
 		if lang, ok := s.DetectFromCookie(cookie); ok {
 			return lang
 		}
 	}
 
-	// 2. Accept-Language header
+	// 3. Accept-Language header
 	return s.DetectFromHeader(c.GetHeader("Accept-Language"))
 }
 
