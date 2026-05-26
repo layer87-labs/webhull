@@ -208,6 +208,7 @@ pages:
 }
 
 func TestParse_EmptySlug(t *testing.T) {
+	// Empty slug is allowed for id: "home" — activates single-page mode.
 	yaml := `
 site:
   name: "TestSite"
@@ -217,20 +218,50 @@ i18n:
   languages: ["de", "en"]
 pages:
   - id: "home"
-    template: "home"
+    template: "single"
     i18n:
       de:
         slug: ""
         title: "Start"
         description: "Desc"
       en:
-        slug: "home"
+        slug: ""
         title: "Home"
         description: "Desc"
 `
 	_, err := Parse([]byte(yaml))
+	if err != nil {
+		t.Fatalf("expected no error for home page with empty slug (single-page mode), got: %v", err)
+	}
+}
+
+func TestParse_EmptySlugNonHome(t *testing.T) {
+	// Empty slug for a non-home page is still an error.
+	yaml := `
+site:
+  name: "TestSite"
+  baseURL: "https://example.com"
+i18n:
+  defaultLanguage: "de"
+  languages: ["de"]
+pages:
+  - id: "home"
+    template: "single"
+    i18n:
+      de:
+        slug: ""
+        title: "Start"
+        description: "Desc"
+  - id: "about"
+    i18n:
+      de:
+        slug: ""
+        title: "About"
+        description: "Desc"
+`
+	_, err := Parse([]byte(yaml))
 	if err == nil {
-		t.Fatal("expected error for empty slug")
+		t.Fatal("expected error for non-home page with empty slug")
 	}
 }
 

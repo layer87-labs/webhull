@@ -305,17 +305,22 @@ func validate(cfg *SiteConfig) error {
 				if _, ok := page.I18n[lang]; !ok {
 					return fmt.Errorf("page %q is missing i18n config for language %q", page.ID, lang)
 				}
-				if page.I18n[lang].Slug == "" {
-					return fmt.Errorf("page %q has empty slug for language %q", page.ID, lang)
+				// Empty slug is allowed only for the home page (single-page mode).
+				if page.I18n[lang].Slug == "" && page.ID != "home" {
+					return fmt.Errorf("page %q has empty slug for language %q (only id \"home\" may use an empty slug for single-page mode)", page.ID, lang)
 				}
 			}
 		}
 
-		// Validate no duplicate slugs within the same language
+		// Validate no duplicate slugs within the same language.
+		// Empty slug (single-page mode) is unique by definition — skip it.
 		for _, lang := range cfg.I18n.Languages {
 			slugs := make(map[string]string) // slug → page ID
 			for _, page := range cfg.Pages {
 				slug := page.I18n[lang].Slug
+				if slug == "" {
+					continue // root page — cannot conflict
+				}
 				if existing, ok := slugs[slug]; ok {
 					return fmt.Errorf("duplicate slug %q for language %q: pages %q and %q", slug, lang, existing, page.ID)
 				}
