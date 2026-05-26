@@ -191,11 +191,11 @@ func (s *Server) buildPageData(page *pages.Page, consentState *consent.State) *t
 			FaviconPath:   s.cfg.Site.FaviconPath,
 			ShowLangFlags: s.cfg.Site.ShowLangFlags,
 		},
-		UI:        s.resolveUI(page.Language),
-		Analytics: analyticsData,
-		IsBot:     s.Bot.IsBot(""), // will be set per-request below
+		UI:             s.resolveUI(page.Language),
+		Analytics:      analyticsData,
+		IsBot:          s.Bot.IsBot(""), // will be set per-request below
 		ContactEnabled: s.cfg.Contact.Enabled,
-		Assets:    s.Assets,
+		Assets:         s.Assets,
 	}
 }
 
