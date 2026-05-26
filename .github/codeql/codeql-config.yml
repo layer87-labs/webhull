@@ -3,6 +3,12 @@ name: "webhull CodeQL config"
 queries:
   - uses: security-and-quality
 
+paths-ignore:
+  # templ-generated Go files — authored source is the *.templ file.
+  # Generated code contains patterns (e.g. variables written but never
+  # read after an if-nil guard) that trip quality queries unnecessarily.
+  - '**/*_templ.go'
+
 query-filters:
   # go/email-injection flags the SMTP body write in forms/mailer.go as
   # a false positive. Headers (To, Subject) are sanitized via
