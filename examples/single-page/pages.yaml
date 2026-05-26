@@ -4,7 +4,7 @@
 # No slug routing — language is detected from cookie or Accept-Language header.
 #
 # Run locally:
-#   webhull -config deploy/config.yaml -pages example-single/pages.yaml
+#   webhull -config deploy/config.yaml -pages examples/single-page/pages.yaml
 #
 # The key difference from the multi-page example:
 #   - id: home uses slug: "" in frontmatter → served at / directly

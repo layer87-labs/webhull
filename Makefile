@@ -1,7 +1,7 @@
 BINARY_NAME  := webhull
 BUILD_DIR    := build/bin
 CONFIG       := deploy/config.yaml
-PAGES        := example/pages.yaml
+PAGES        := examples/multi-page/pages.yaml
 
 # Parameters — must stay in sync with the pipeline configuration
 STATICCHECK_CHECKS ?= all,-ST1000,-U1000

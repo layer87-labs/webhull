@@ -1,16 +1,14 @@
-# site.yaml — monolithic configuration example
+# pages.yaml — site structure for webhull example
 #
-# This single file contains both operational settings and site structure.
-# Suitable for simple deployments and local development.
+# This file is baked into the container image alongside content/ and static/.
+# It defines WHAT the site is: identity, languages, navigation, UI strings, and
+# the content directory path.
 #
-# For production, split into:
-#   - config.yaml (operational: server, mail, analytics, gate) — Kubernetes ConfigMap
-#   - pages.yaml  (site structure: identity, i18n, navigation)  — baked into image
+# Operational settings (server ports, SMTP, analytics, gate secrets) live in
+# config.yaml, which is mounted as a Kubernetes ConfigMap at runtime.
 #
-# Run:
-#   webhull -config example/site.yaml
-#
-# All ${VAR:default} references are expanded at runtime from environment variables.
+# Run locally:
+#   webhull -config deploy/config.yaml -pages examples/multi-page/pages.yaml
 
 # ── Site identity ─────────────────────────────────────────────────────────────
 
@@ -29,32 +27,10 @@ i18n:
   languages: ["en", "de"]
 
 # ── Content directory ─────────────────────────────────────────────────────────
+# HTML files with YAML frontmatter. Scanned at startup.
+# Structure: content/{lang}/{slug}.html
 
-contentDir: "example/content"
-
-# ── Server ────────────────────────────────────────────────────────────────────
-
-server:
-  port: "${PORT:8080}"
-  host: "0.0.0.0"
-  environment: "${ENVIRONMENT:development}"
-  readTimeout: 15s
-  writeTimeout: 15s
-  idleTimeout: 60s
-  shutdownTimeout: 30s
-  staticDir: "example/static"
-  cacheMaxAge: 1h
-  staticCacheMaxAge: 8760h   # 1 year — safe because URLs are content-hash cache-busted
-
-# ── Health server ─────────────────────────────────────────────────────────────
-
-health:
-  enabled: false             # set to true and configure port for Kubernetes probes
-  host: "0.0.0.0"
-  port: 9090
-  healthPath: "/health"
-  readyPath: "/ready"
-  metricsPath: "/metrics"
+contentDir: "content"
 
 # ── Navigation ────────────────────────────────────────────────────────────────
 
@@ -146,55 +122,7 @@ ui:
     notFoundSubtitle: "Die gesuchte Seite existiert nicht oder wurde verschoben."
     notFoundButton: "Zur Startseite"
 
-# ── Contact form ──────────────────────────────────────────────────────────────
-
-contact:
-  enabled: true
-  recipientName: "Northgate Software"
-  recipients:
-    - "${CONTACT_EMAIL:hello@example.com}"
-  subject:
-    en: "New message from {{.Name}}: {{.Subject}}"
-    de: "Neue Nachricht von {{.Name}}: {{.Subject}}"
-  maxLinks: 2
-  rateLimit:
-    requests: 3
-    window: 15m
-
-# ── Mail / SMTP ───────────────────────────────────────────────────────────────
-
-mail:
-  host: "${SMTP_HOST:smtp.example.com}"
-  port: 587
-  username: "${SMTP_USERNAME}"
-  password: "${SMTP_PASSWORD}"
-  from: "${SMTP_FROM:noreply@example.com}"
-  fromName: "Northgate Software"
-  useTLS: false
-  templates:
-    en:
-      subject: "We received your message"
-      body: |
-        <p>Hi {{.Name}},</p>
-        <p>Thank you for reaching out. We will get back to you within one business day.</p>
-        <p>Northgate Software</p>
-    de:
-      subject: "Ihre Nachricht ist angekommen"
-      body: |
-        <p>Hallo {{.Name}},</p>
-        <p>vielen Dank für Ihre Nachricht. Wir melden uns innerhalb eines Werktages.</p>
-        <p>Northgate Software</p>
-
-# ── Analytics ─────────────────────────────────────────────────────────────────
-
-analytics:
-  plausible:
-    enabled: false             # set to true and configure domain to enable
-    domain: "${PLAUSIBLE_DOMAIN:example.com}"
-    baseURL: "${PLAUSIBLE_BASE_URL:https://plausible.io}"
-    scriptPath: "/js/script.js"
-
-# ── Consent / GDPR ────────────────────────────────────────────────────────────
+# ── Consent banner ────────────────────────────────────────────────────────────
 
 consent:
   enabled: true
@@ -227,7 +155,7 @@ consent:
         necessary: "Notwendig"
         analytics: "Analyse"
 
-# ── SEO ───────────────────────────────────────────────────────────────────────
+# ── SEO defaults ──────────────────────────────────────────────────────────────
 
 seo:
   defaultOGImage: "/static/img/og/default.webp"
@@ -241,15 +169,3 @@ seo:
         "url": "${BASE_URL:http://localhost:8080}",
         "logo": "${BASE_URL:http://localhost:8080}/static/img/logo.webp"
       }
-
-# ── Access gate (optional) ────────────────────────────────────────────────────
-# Remove or set enabled: false to keep the site fully public (default).
-
-gate:
-  enabled: false
-  cookieSecret: "${GATE_SECRET}"
-  cookieName: "gate_session"
-  cookieMaxAge: 24h
-  codes:
-    - code: "cedar-frost-9"
-      label: "Example access code — replace before use"

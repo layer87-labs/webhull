@@ -61,7 +61,7 @@ Run `make help` to list all targets.
 |--------|-------------|
 | `make generate` | Regenerate templ templates (`templ generate`). Run after editing any `.templ` file. |
 | `make build` | `generate` → compile binary to `build/bin/webhull`. |
-| `make run` | `build` → run with `deploy/config.yaml` + `example/pages.yaml`. |
+| `make run` | `build` → run with `deploy/config.yaml` + `examples/multi-page/pages.yaml`. |
 | `make dev` | Hot-reload development server via [air](https://github.com/air-verse/air). |
 
 ### Quality gate

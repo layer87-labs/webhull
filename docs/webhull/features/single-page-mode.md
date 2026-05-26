@@ -132,18 +132,19 @@ Link to it from the hero and nav with `#contact`.
 
 ## Example
 
-A complete working example is in `example-single/`:
+A complete working example is in `examples/single-page/`:
 
 ```
-example-single/
-  pages.yaml              # single-page site config
-  content/
-    de/index.html         # German single-page content (slug: "")
-    en/index.html         # English single-page content (slug: "")
+examples/
+  single-page/
+    pages.yaml              # single-page site config
+    content/
+      de/index.html         # German single-page content (slug: "")
+      en/index.html         # English single-page content (slug: "")
 ```
 
 Run locally:
 
 ```bash
-webhull -config deploy/config.yaml -pages example-single/pages.yaml
+webhull -config deploy/config.yaml -pages examples/single-page/pages.yaml
 ```
