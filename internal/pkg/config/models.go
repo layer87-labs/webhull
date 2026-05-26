@@ -115,14 +115,19 @@ type NavItemConfig struct {
 
 // UIStringsConfig holds global per-language strings for header, footer, and shared UI.
 type UIStringsConfig struct {
-	ContactURL       string `yaml:"contactURL"`
-	ContactLabel     string `yaml:"contactLabel"`
-	FooterTagline    string `yaml:"footerTagline"`
-	AllRights        string `yaml:"allRights"`
-	ImprintURL       string `yaml:"imprintURL"`
-	ImprintLabel     string `yaml:"imprintLabel"`
-	PrivacyURL       string `yaml:"privacyURL"`
-	PrivacyLabel     string `yaml:"privacyLabel"`
+	ContactURL    string `yaml:"contactURL"`
+	ContactLabel  string `yaml:"contactLabel"`
+	FooterTagline string `yaml:"footerTagline"`
+	AllRights     string `yaml:"allRights"`
+	ImprintURL    string `yaml:"imprintURL"`
+	ImprintLabel  string `yaml:"imprintLabel"`
+	PrivacyURL    string `yaml:"privacyURL"`
+	PrivacyLabel  string `yaml:"privacyLabel"`
+	// CreditsText is an optional attribution line shown at the end of the footer bar.
+	// Example: "Designed & hosted by Layer87"
+	CreditsText string `yaml:"creditsText,omitempty"`
+	// CreditsURL is an optional URL that wraps CreditsText in a link.
+	CreditsURL       string `yaml:"creditsURL,omitempty"`
 	NotFoundTitle    string `yaml:"notFoundTitle"`
 	NotFoundSubtitle string `yaml:"notFoundSubtitle"`
 	NotFoundButton   string `yaml:"notFoundButton"`

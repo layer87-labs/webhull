@@ -53,6 +53,16 @@ templ Footer(data *PageData) {
 							{ data.UI.PrivacyLabel }
 						</a>
 					}
+					if data.UI.CreditsText != "" {
+						{ " · " }
+						if data.UI.CreditsURL != "" {
+							<a href={ templ.SafeURL(data.UI.CreditsURL) } class="footer-credits">
+								{ data.UI.CreditsText }
+							</a>
+						} else {
+							<span class="footer-credits">{ data.UI.CreditsText }</span>
+						}
+					}
 				</p>
 			</div>
 		</div>
