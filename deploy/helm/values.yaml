@@ -110,7 +110,20 @@ configMaps: []
 # Contains ONLY operational settings: server, health, mail, analytics, consent,
 # seo, gate. Site structure (pages, navigation, UI strings) is in pages.yaml
 # which is baked into the container image.
-config: {}
+#
+# The health section is pre-configured to match the liveness/readiness probes
+# above. Override serviceName and serviceVersion for your deployment.
+config:
+  health:
+    enabled: true
+    host: "0.0.0.0"
+    port: 8082
+    healthPath: "/health"
+    readyPath: "/ready"
+    metricsPath: "/metrics"
+    timeout: 5s
+    serviceName: "webhull"
+    serviceVersion: "${APP_VERSION:unknown}"
   # server:
   #   port: "${PORT:8080}"
   #   host: "0.0.0.0"
