@@ -33,6 +33,59 @@ func NewService(staticDir, urlPrefix string, logger *zap.Logger) *Service {
 	return s
 }
 
+// ScanEmbedded hashes files from an embedded FS and registers them under
+// urlPrefix. Files are mapped by stripping the fsRoot prefix from their path:
+//
+//	fsRoot="js", urlPrefix="/static"  →  js/menu.js  becomes  /static/js/menu.js
+//
+// Entries from the embedded FS are registered with lower priority: a subsequent
+// call to scan() (user staticDir) will overwrite any matching key, so user
+// files always take precedence over built-in assets.
+func (s *Service) ScanEmbedded(embedded fs.FS, fsRoot, urlPrefix string) {
+	err := fs.WalkDir(embedded, fsRoot, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+
+		ext := strings.ToLower(filepath.Ext(path))
+		switch ext {
+		case ".css", ".js", ".webp", ".png", ".jpg", ".jpeg", ".svg", ".woff2", ".woff":
+			// hash these
+		default:
+			return nil
+		}
+
+		data, err := fs.ReadFile(embedded, path)
+		if err != nil {
+			s.logger.Warn("failed to read embedded asset for hashing",
+				zap.String("path", path),
+				zap.Error(err))
+			return nil
+		}
+
+		hash := sha256.Sum256(data)
+		shortHash := hex.EncodeToString(hash[:])[:8]
+
+		// Strip fsRoot prefix and build URL: /static/js/menu.js
+		rel := strings.TrimPrefix(path, fsRoot)
+		rel = strings.TrimPrefix(rel, "/")
+		urlPath := urlPrefix + "/" + rel
+
+		s.mu.Lock()
+		s.hashes[urlPath] = shortHash
+		s.mu.Unlock()
+
+		s.logger.Debug("embedded asset hashed",
+			zap.String("path", urlPath),
+			zap.String("hash", shortHash))
+
+		return nil
+	})
+	if err != nil {
+		s.logger.Error("failed to scan embedded assets", zap.Error(err))
+	}
+}
+
 // scan walks the static directory and hashes all files.
 func (s *Service) scan(dir, urlPrefix string) {
 	if dir == "" {

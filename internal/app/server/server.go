@@ -27,6 +27,7 @@ import (
 	"github.com/layer87-labs/webhull/internal/pkg/pages"
 	"github.com/layer87-labs/webhull/internal/pkg/security"
 	"github.com/layer87-labs/webhull/internal/pkg/seo"
+	"github.com/layer87-labs/webhull/internal/pkg/staticassets"
 )
 
 // Server is the main application server that wires all modules together.
@@ -154,8 +155,10 @@ func (s *Server) initServices() error {
 	// Bot detector
 	s.Bot = security.NewBotDetector()
 
-	// Assets (cache-busting hashes)
+	// Assets (cache-busting hashes): scan embedded built-ins first, then
+	// user staticDir so user files always take precedence.
 	s.Assets = assets.NewService(s.cfg.Server.StaticDir, "/static", s.logger)
+	s.Assets.ScanEmbedded(staticassets.FS, "js", "/static")
 
 	// Forms (if contact is enabled)
 	if s.cfg.Contact.Enabled {
@@ -268,9 +271,13 @@ func (s *Server) setupRoutes() {
 	s.router.GET("/sitemap.xml", s.SEO.ServeSitemap(s.Pages.All()))
 	s.router.GET("/robots.txt", s.SEO.ServeRobotsTxt())
 
-	// Static files
+	// Static files: serve webhull's embedded built-ins, then overlay the
+	// user's staticDir on top so project files always take precedence.
+	embeddedStatic := http.FS(staticassets.WrapFS())
 	if s.cfg.Server.StaticDir != "" {
-		s.router.Static("/static", s.cfg.Server.StaticDir)
+		s.router.StaticFS("/static", staticassets.OverlayFS(s.cfg.Server.StaticDir, embeddedStatic))
+	} else {
+		s.router.StaticFS("/static", embeddedStatic)
 	}
 
 	// Health check
