@@ -45,7 +45,13 @@ func NewService(siteCfg config.SiteIdentity, seoCfg config.SEODefaults, i18nSvc 
 
 // BuildMetaTags generates the complete meta tags for a page.
 func (s *Service) BuildMetaTags(page *pages.Page) MetaTags {
-	canonical := s.baseURL + "/" + page.Slug
+	// Canonical URL: empty slug resolves to the site root.
+	var canonical string
+	if page.Slug == "" {
+		canonical = s.baseURL + "/"
+	} else {
+		canonical = s.baseURL + "/" + page.Slug
+	}
 
 	// Gap 1: use seo_title / seo_description with fallback to title / description.
 	title := page.SEOTitle
@@ -69,7 +75,7 @@ func (s *Service) BuildMetaTags(page *pages.Page) MetaTags {
 	ogType := page.SEO.OGType
 	if ogType == "" {
 		switch page.Template {
-		case "home", "legal":
+		case "home", "legal", "single":
 			ogType = "website"
 		default:
 			// contact, default, and all custom templates → article
@@ -125,12 +131,20 @@ func (s *Service) Copyright() CopyrightInfo {
 }
 
 // LanguageSwitchLinks builds the language switcher data for a page.
+// For single-page mode (empty slug), the link uses a ?lang= query param
+// so that clicking it sets the language cookie without navigating away from /.
 func (s *Service) LanguageSwitchLinks(page *pages.Page) []LanguageSwitchLink {
 	links := make([]LanguageSwitchLink, 0, len(page.Alternates))
 	for lang, slug := range page.Alternates {
+		url := "/" + slug
+		if slug == "" {
+			// Single-page mode: all languages live at /.
+			// Use ?lang= so the i18n middleware can switch and persist the choice.
+			url = "/?lang=" + lang.String()
+		}
 		links = append(links, LanguageSwitchLink{
 			Language: lang,
-			URL:      "/" + slug,
+			URL:      url,
 			Label:    strings.ToUpper(lang.String()),
 			Active:   lang == page.Language,
 		})

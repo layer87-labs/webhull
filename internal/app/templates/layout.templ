@@ -65,7 +65,7 @@ templ Layout(data *PageData) {
 			@ConsentBanner(data.ConsentConfig, data.LangCode())
 		}
 		<script defer src={ data.AssetPath("/static/js/menu.js") }></script>
-		if data.Page != nil && data.Page.Template == "contact" {
+		if data.Page != nil && (data.Page.Template == "contact" || data.Page.Template == "single") {
 			<script defer src={ data.AssetPath("/static/js/contact.js") }></script>
 		}
 		if data.Analytics.CollectorEnabled {

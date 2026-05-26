@@ -8,7 +8,7 @@
 #   - pages.yaml  (site structure: identity, i18n, navigation)  — baked into image
 #
 # Run:
-#   webhull -config example/site.yaml
+#   webhull -config examples/multi-page/site.yaml
 #
 # All ${VAR:default} references are expanded at runtime from environment variables.
 
@@ -30,7 +30,7 @@ i18n:
 
 # ── Content directory ─────────────────────────────────────────────────────────
 
-contentDir: "example/content"
+contentDir: "content"
 
 # ── Server ────────────────────────────────────────────────────────────────────
 
@@ -42,7 +42,7 @@ server:
   writeTimeout: 15s
   idleTimeout: 60s
   shutdownTimeout: 30s
-  staticDir: "example/static"
+  staticDir: "static"
   cacheMaxAge: 1h
   staticCacheMaxAge: 8760h   # 1 year — safe because URLs are content-hash cache-busted
 

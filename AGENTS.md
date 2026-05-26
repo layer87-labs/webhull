@@ -63,13 +63,16 @@ deploy/
     Chart.yaml
     values.yaml          # Full Helm values with inline docs
 
-example/
-  pages.yaml             # Site structure config template (baked into image)
-  site.yaml              # Legacy monolithic config example
-  content/de/            # Example German content pages
-
-example-gate/
-  site.yaml              # Gate-protected site config example
+examples/
+  multi-page/
+    pages.yaml             # Multi-page site config template
+    site.yaml              # Legacy monolithic config example
+    content/de/            # Example German content pages
+    static/                # Example static assets (CSS, JS, images)
+  single-page/
+    pages.yaml             # Single-page site config template
+    content/de/            # Example German single-page content
+    content/en/            # Example English single-page content
 
 docs/webhull/
   intro.md               # What webhull is, why it exists
@@ -145,9 +148,9 @@ the file that defines them**. `staticDir` from `-config` resolves relative to `-
 `contentDir` from `-pages` resolves relative to `-pages`.
 
 **Monolithic mode** (`-pages` omitted): both halves in a single file. Still supported —
-used in `example/site.yaml` and `example-gate/site.yaml`.
+used in `examples/multi-page/site.yaml`.
 
-**Local development** uses `deploy/config.yaml` + `example/pages.yaml` via `make run`.
+**Local development** uses `deploy/config.yaml` + `examples/multi-page/pages.yaml` via `make run`.
 
 ---
 
@@ -303,7 +306,7 @@ The health server runs independently of Gin — it stays up even if the main ser
 ```bash
 make dev          # Hot reload via air — fastest iteration loop
 make build        # templ generate → go build → build/bin/webhull
-make run          # build + run with deploy/config.yaml + example/pages.yaml
+make run          # build + run with deploy/config.yaml + examples/multi-page/pages.yaml
 make test         # go test ./... -v -race -count=1
 make test-cover   # Coverage report → build/coverage/
 make audit        # go vet + tests
@@ -346,5 +349,5 @@ Includes: Go build config, container config, Helm chart config.
 - **No CGO** — `CGO_ENABLED=0`; binary runs in `chainguard/static` (distroless, no shell)
 - **Split config is the production model** — `deploy/config.yaml` via Helm ConfigMap, `pages.yaml` baked into consumer image
 - **Module path:** `github.com/Layer87/webhull` (public module, private build registry)
-- **`example/` is in the container context** (`contextDirs: [example]` in `pipeline.yml`) — example content is included in the built image
+- **`examples/` is in the container context** — example content is included in the built image
 - **Secrets at runtime only** — SMTP, gate secret, and other credentials via `${VAR}` expansion — never committed

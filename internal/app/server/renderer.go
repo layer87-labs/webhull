@@ -17,6 +17,7 @@ var templateRegistry = map[string]func(*templates.PageData) templ.Component{
 	"contact":  func(d *templates.PageData) templ.Component { return tmplpages.ContactPage(d) },
 	"legal":    func(d *templates.PageData) templ.Component { return tmplpages.LegalPage(d) },
 	"default":  func(d *templates.PageData) templ.Component { return tmplpages.DefaultPage(d) },
+	"single":   func(d *templates.PageData) templ.Component { return tmplpages.SinglePage(d) },
 	"notfound": func(d *templates.PageData) templ.Component { return tmplpages.NotFoundPage(d) },
 }
 

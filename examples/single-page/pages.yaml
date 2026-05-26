@@ -1,14 +1,16 @@
-# pages.yaml — site structure for webhull example
+# pages.yaml — single-page site example for webhull
 #
-# This file is baked into the container image alongside content/ and static/.
-# It defines WHAT the site is: identity, languages, navigation, UI strings, and
-# the content directory path.
-#
-# Operational settings (server ports, SMTP, analytics, gate secrets) live in
-# config.yaml, which is mounted as a Kubernetes ConfigMap at runtime.
+# This demonstrates single-page mode: the entire site is one scrollable page at /.
+# No slug routing — language is detected from cookie or Accept-Language header.
 #
 # Run locally:
-#   webhull -config deploy/config.yaml -pages example/pages.yaml
+#   webhull -config deploy/config.yaml -pages examples/single-page/pages.yaml
+#
+# The key difference from the multi-page example:
+#   - id: home uses slug: "" in frontmatter → served at / directly
+#   - Navigation items use #anchor hrefs instead of separate page URLs
+#   - contact.enabled: true → contact form rendered at #contact after all sections
+#   - Language switching uses /?lang=XX links (set cookie, no redirect)
 
 # ── Site identity ─────────────────────────────────────────────────────────────
 
@@ -23,104 +25,68 @@ site:
 # ── Internationalisation ──────────────────────────────────────────────────────
 
 i18n:
-  defaultLanguage: "en"
-  languages: ["en", "de"]
+  defaultLanguage: "de"
+  languages: ["de", "en"]
 
 # ── Content directory ─────────────────────────────────────────────────────────
-# HTML files with YAML frontmatter. Scanned at startup.
-# Structure: content/{lang}/{slug}.html
+# Each language has one file: content/{lang}/index.html
+# The file declares slug: "" so it is served at / in single-page mode.
 
 contentDir: "content"
 
 # ── Navigation ────────────────────────────────────────────────────────────────
+# All links are #anchor references into the single page.
+# Add legal pages (impressum, datenschutz) as separate slug pages if needed.
 
 navigation:
   header:
-    en:
-      - title: "Services"
-        url: "/services"
-        slug: "services"
-      - title: "About"
-        url: "/about"
-        slug: "about"
     de:
       - title: "Leistungen"
-        url: "/leistungen"
-        slug: "leistungen"
+        url: "#leistungen"
       - title: "Über uns"
-        url: "/ueber-uns"
-        slug: "ueber-uns"
-  footer:
+        url: "#ueber-uns"
     en:
-      - title: "Company"
-        url: "#"
-        slug: "company"
-        children:
-          - title: "About"
-            url: "/about"
-            slug: "about"
-          - title: "Contact"
-            url: "/contact"
-            slug: "contact"
-      - title: "Legal"
-        url: "#"
-        slug: "legal"
-        children:
-          - title: "Imprint"
-            url: "/imprint"
-            slug: "imprint"
-          - title: "Privacy"
-            url: "/privacy"
-            slug: "privacy"
+      - title: "Services"
+        url: "#services"
+      - title: "About"
+        url: "#about"
+  footer:
     de:
-      - title: "Unternehmen"
-        url: "#"
-        slug: "unternehmen"
-        children:
-          - title: "Über uns"
-            url: "/ueber-uns"
-            slug: "ueber-uns"
-          - title: "Kontakt"
-            url: "/kontakt"
-            slug: "kontakt"
       - title: "Rechtliches"
         url: "#"
-        slug: "rechtliches"
         children:
           - title: "Impressum"
             url: "/impressum"
-            slug: "impressum"
           - title: "Datenschutz"
             url: "/datenschutz"
-            slug: "datenschutz"
+    en:
+      - title: "Legal"
+        url: "#"
+        children:
+          - title: "Imprint"
+            url: "/imprint"
+          - title: "Privacy"
+            url: "/privacy"
 
 # ── UI strings ────────────────────────────────────────────────────────────────
 
 ui:
-  en:
-    contactURL: "/contact"
-    contactLabel: "Contact"
-    footerTagline: "Software built to last."
-    allRights: "All rights reserved."
-    imprintURL: "/imprint"
-    imprintLabel: "Imprint"
-    privacyURL: "/privacy"
-    privacyLabel: "Privacy"
-    notFoundTitle: "Page not found"
-    notFoundSubtitle: "The page you are looking for does not exist or has been moved."
-    notFoundButton: "Back to home"
   de:
-    contactURL: "/kontakt"
+    contactURL: "#contact"
     contactLabel: "Kontakt"
     footerTagline: "Software, die bleibt."
     allRights: "Alle Rechte vorbehalten."
-    imprintURL: "/impressum"
-    imprintLabel: "Impressum"
-    privacyURL: "/datenschutz"
-    privacyLabel: "Datenschutz"
     notFoundTitle: "Seite nicht gefunden"
     notFoundSubtitle: "Die gesuchte Seite existiert nicht oder wurde verschoben."
     notFoundButton: "Zur Startseite"
+  en:
+    contactURL: "#contact"
+    contactLabel: "Contact"
+    footerTagline: "Software built to last."
+    allRights: "All rights reserved."
+    notFoundTitle: "Page not found"
+    notFoundSubtitle: "The page you are looking for does not exist or has been moved."
+    notFoundButton: "Back to home"
 
 # ── Consent banner ────────────────────────────────────────────────────────────
 
@@ -134,16 +100,6 @@ consent:
       required: false
       default: false
   i18n:
-    en:
-      title: "Cookie Settings"
-      description: "We use cookies to operate the website and analyse traffic."
-      acceptAll: "Accept all"
-      rejectAll: "Reject all"
-      customize: "Customize"
-      save: "Save preferences"
-      categories:
-        necessary: "Necessary"
-        analytics: "Analytics"
     de:
       title: "Cookie-Einstellungen"
       description: "Wir verwenden Cookies für den Betrieb der Website und zur Analyse."
@@ -154,18 +110,35 @@ consent:
       categories:
         necessary: "Notwendig"
         analytics: "Analyse"
+    en:
+      title: "Cookie Settings"
+      description: "We use cookies to operate the website and analyse traffic."
+      acceptAll: "Accept all"
+      rejectAll: "Reject all"
+      customize: "Customize"
+      save: "Save preferences"
+      categories:
+        necessary: "Necessary"
+        analytics: "Analytics"
 
 # ── SEO defaults ──────────────────────────────────────────────────────────────
 
 seo:
   defaultOGImage: "/static/img/og/default.webp"
   defaultTwitterCard: "summary_large_image"
-  globalJsonLD:
-    - |
-      {
-        "@context": "https://schema.org",
-        "@type": "Organization",
-        "name": "Northgate Software",
-        "url": "${BASE_URL:http://localhost:8080}",
-        "logo": "${BASE_URL:http://localhost:8080}/static/img/logo.webp"
-      }
+
+# ── Contact form ──────────────────────────────────────────────────────────────
+# Rendered inline at #contact after all content sections.
+# SMTP config lives in deploy/config.yaml.
+
+contact:
+  enabled: true
+  recipientName: "Northgate Software"
+  recipients: ["${CONTACT_EMAIL:hello@example.com}"]
+  subject:
+    de: "Neue Kontaktanfrage"
+    en: "New contact request"
+  maxLinks: 3
+  rateLimit:
+    requests: 3
+    window: 15m

@@ -15,8 +15,12 @@ type Service struct {
 	// pagesByID maps "pageID:lang" → *Page for cross-referencing.
 	pagesByID map[string]*Page
 
-	// startSlugs maps Language → start page slug (for root redirect).
+	// startSlugs maps Language → start page slug (for root redirect in multi-page mode).
 	startSlugs map[i18n.Language]string
+
+	// rootPages maps Language → root *Page for single-page mode.
+	// Populated when the home page declares empty slugs across all languages.
+	rootPages map[i18n.Language]*Page
 
 	// allPages holds all resolved pages for iteration (sitemap, pre-rendering).
 	allPages []*Page
@@ -28,6 +32,7 @@ func NewService(pages []config.PageConfig, languages []string) (*Service, error)
 		slugIndex:  make(map[string]*Page),
 		pagesByID:  make(map[string]*Page),
 		startSlugs: make(map[i18n.Language]string),
+		rootPages:  make(map[i18n.Language]*Page),
 		allPages:   make([]*Page, 0, len(pages)*len(languages)),
 	}
 
@@ -82,15 +87,23 @@ func NewService(pages []config.PageConfig, languages []string) (*Service, error)
 			svc.pagesByID[fmt.Sprintf("%s:%s", pageCfg.ID, lang)] = page
 			svc.allPages = append(svc.allPages, page)
 
-			// Track start page slugs (page with ID "home" or slug matching root indicators)
+			// Track home page for root routing.
+			// Empty slug → single-page mode (render at /); non-empty → multi-page redirect.
 			if pageCfg.ID == "home" {
-				svc.startSlugs[i18n.Language(lang)] = i18nCfg.Slug
+				if i18nCfg.Slug == "" {
+					svc.rootPages[i18n.Language(lang)] = page
+				} else {
+					svc.startSlugs[i18n.Language(lang)] = i18nCfg.Slug
+				}
 			}
 		}
 	}
 
-	if len(svc.startSlugs) == 0 {
-		return nil, fmt.Errorf("no page with id \"home\" found — a start page is required")
+	if len(svc.startSlugs) == 0 && len(svc.rootPages) == 0 {
+		return nil, fmt.Errorf(
+			"no home page found: declare a page with id \"home\" — " +
+				"use non-empty slugs for multi-page mode or empty slugs for single-page mode",
+		)
 	}
 
 	return svc, nil
@@ -106,9 +119,21 @@ func (s *Service) GetByID(pageID string, lang i18n.Language) *Page {
 	return s.pagesByID[fmt.Sprintf("%s:%s", pageID, lang)]
 }
 
-// StartSlugs returns the start page slugs per language (for root redirect).
+// StartSlugs returns the start page slugs per language (for root redirect in multi-page mode).
 func (s *Service) StartSlugs() map[i18n.Language]string {
 	return s.startSlugs
+}
+
+// HasRootPages reports whether the site runs in single-page mode.
+// Single-page mode is active when the home page has empty slugs across all languages.
+func (s *Service) HasRootPages() bool {
+	return len(s.rootPages) > 0
+}
+
+// RootPage returns the root page for the given language.
+// Returns nil if the site is not in single-page mode or the language has no root page.
+func (s *Service) RootPage(lang i18n.Language) *Page {
+	return s.rootPages[lang]
 }
 
 // All returns all resolved pages across all languages.
