@@ -20,7 +20,7 @@ import (
 //	js/contact.js     →  /static/js/contact.js
 //	js/analytics.js   →  /static/js/analytics.js
 //
-//go:embed js
+//go:embed js css
 var FS embed.FS
 
 // WrapFS returns an http.FileSystem backed by the embedded FS, rooted at the

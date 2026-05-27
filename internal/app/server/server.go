@@ -129,7 +129,10 @@ func (s *Server) initServices() error {
 		if err != nil {
 			return fmt.Errorf("content loading: %w", err)
 		}
-		s.cfg.Pages = append(s.cfg.Pages, contentPages...)
+		// Merge content pages into any supplementary yaml pages that share the same ID
+		// (e.g. a pages.yaml entry that only carries SEO JSON-LD). Content data always
+		// wins for i18n/template fields; yaml-only fields (JSONLD) are preserved.
+		s.cfg.Pages = mergeContentPages(s.cfg.Pages, contentPages)
 	}
 
 	if len(s.cfg.Pages) == 0 {
@@ -159,6 +162,7 @@ func (s *Server) initServices() error {
 	// user staticDir so user files always take precedence.
 	s.Assets = assets.NewService(s.cfg.Server.StaticDir, "/static", s.logger)
 	s.Assets.ScanEmbedded(staticassets.FS, "js", "/static")
+	s.Assets.ScanEmbedded(staticassets.FS, "css", "/static")
 
 	// Forms (if contact is enabled)
 	if s.cfg.Contact.Enabled {
@@ -214,6 +218,59 @@ func (s *Server) initServices() error {
 	}
 
 	return nil
+}
+
+// mergeContentPages merges content-loaded pages into the base slice (from pages.yaml).
+// When a content page shares an ID with a base entry, the content data (i18n, template,
+// per-file SEO) is overlaid onto the base entry so that yaml-only fields (e.g. JSONLD)
+// are preserved. Content pages with no matching base entry are appended as-is.
+func mergeContentPages(base []config.PageConfig, content []config.PageConfig) []config.PageConfig {
+	// Build an index of base pages by ID.
+	idx := make(map[string]int, len(base))
+	for i, p := range base {
+		idx[p.ID] = i
+	}
+
+	var extra []config.PageConfig
+	for _, cp := range content {
+		i, ok := idx[cp.ID]
+		if !ok {
+			extra = append(extra, cp)
+			continue
+		}
+
+		// Overlay i18n data from the content page onto the base entry.
+		if base[i].I18n == nil {
+			base[i].I18n = make(map[string]config.PageI18nConfig)
+		}
+		for lang, i18nCfg := range cp.I18n {
+			base[i].I18n[lang] = i18nCfg
+		}
+
+		// Template comes from content if not already set in yaml.
+		if base[i].Template == "" {
+			base[i].Template = cp.Template
+		}
+
+		// Merge per-file SEO fields (content wins; JSONLD from yaml is preserved).
+		if cp.SEO.Priority > 0 {
+			base[i].SEO.Priority = cp.SEO.Priority
+		}
+		if cp.SEO.ChangeFreq != "" {
+			base[i].SEO.ChangeFreq = cp.SEO.ChangeFreq
+		}
+		if cp.SEO.OGImage != "" {
+			base[i].SEO.OGImage = cp.SEO.OGImage
+		}
+		if cp.SEO.OGType != "" {
+			base[i].SEO.OGType = cp.SEO.OGType
+		}
+		if cp.SEO.NoIndex {
+			base[i].SEO.NoIndex = true
+		}
+	}
+
+	return append(base, extra...)
 }
 
 // initAnalytics sets up analytics providers.

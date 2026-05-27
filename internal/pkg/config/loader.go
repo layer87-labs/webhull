@@ -159,6 +159,17 @@ func mergePages(cfg *SiteConfig, data []byte) error {
 		cfg.Pages = overlay.Pages
 	}
 
+	// Consent i18n texts — pages file is authoritative for user-facing copy.
+	// The operational config (config.yaml) owns enabled/categories; pages.yaml owns i18n.
+	if len(overlay.Consent.I18n) > 0 {
+		if cfg.Consent.I18n == nil {
+			cfg.Consent.I18n = make(map[string]ConsentI18nConfig)
+		}
+		for lang, texts := range overlay.Consent.I18n {
+			cfg.Consent.I18n[lang] = texts
+		}
+	}
+
 	return nil
 }
 
@@ -297,11 +308,17 @@ func validate(cfg *SiteConfig) error {
 		return fmt.Errorf("site.baseURL is required")
 	}
 
-	// Pages are loaded separately via content.Load() — validate if present
+	// Pages are loaded separately via content.Load() — validate if present.
+	// Pages without an i18n block are treated as supplementary entries (e.g. providing
+	// SEO JSON-LD overrides) and are merged with content pages at startup; skip them here.
 	if len(cfg.Pages) > 0 {
-		// Validate i18n consistency
+		// Validate i18n consistency — only for pages that declare i18n data.
 		for _, lang := range cfg.I18n.Languages {
 			for _, page := range cfg.Pages {
+				if len(page.I18n) == 0 {
+					// Supplementary page (SEO/JSON-LD only) — will be merged with content later.
+					continue
+				}
 				if _, ok := page.I18n[lang]; !ok {
 					return fmt.Errorf("page %q is missing i18n config for language %q", page.ID, lang)
 				}
