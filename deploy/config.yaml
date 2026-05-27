@@ -1,67 +1,47 @@
-# Operational Configuration — 12-factor, environment-dependent
-# All ${VAR:default} references are expanded at runtime from environment variables.
+# Operational Configuration — environment-specific overrides
 #
-# This file is deployed via Helm ConfigMap and can differ per environment.
-# Site structure (pages, navigation, UI strings) lives in pages.yaml (baked into the image).
+# Mounted at runtime via Helm ConfigMap. Only set what differs from defaults.
+# Site structure (pages, navigation, consent, analytics, seo) lives in pages.yaml.
+#
+# All ${VAR:default} references are expanded at runtime from environment variables.
+# All sections below have sane defaults — only override what you need.
 
-server:
-  port: "${PORT:8080}"
-  host: "0.0.0.0"
-  environment: "${WEBCORE_ENVIRONMENT:production}"
-  readTimeout: 15s
-  writeTimeout: 15s
-  idleTimeout: 60s
-  shutdownTimeout: 30s
-  staticDir: "static"
-  cacheMaxAge: 1h
-  staticCacheMaxAge: 8760h
+# ── Server ────────────────────────────────────────────────────────────────────
+# Defaults: port 8080, host 0.0.0.0, timeouts 15s/15s/60s/30s, cache 1h/1y
+# server:
+#   port: "${PORT:8080}"
+#   environment: "${ENVIRONMENT:production}"
+#   staticDir: "static"
 
-health:
-  enabled: true
-  host: "0.0.0.0"
-  port: 8082
-  healthPath: "/health"
-  readyPath: "/ready"
-  metricsPath: "/metrics"
-  timeout: 5s
-  serviceName: "webhull"
-  serviceVersion: "${APP_VERSION:dev}"
+# ── Health ────────────────────────────────────────────────────────────────────
+# Defaults: enabled, port 8082, /health, /ready, /metrics, 5s timeout
+# serviceName auto-derived from site.baseURL domain
+# health:
+#   serviceVersion: "${APP_VERSION:dev}"
 
+# ── Mail (SMTP credentials) ──────────────────────────────────────────────────
+# from/fromName/templates are defined in pages.yaml (site identity).
+# Only connection details needed here.
 mail:
   host: "${SMTP_HOST:localhost}"
-  port: 587
+  port: ${SMTP_PORT:587}
   username: "${SMTP_USERNAME:}"
   password: "${SMTP_PASSWORD:}"
-  from: "${SMTP_FROM:noreply@example.com}"
-  fromName: "${SMTP_FROM_NAME:My Site}"
-  useTLS: true
+  useTLS: ${SMTP_TLS:true}
 
-analytics:
-  plausible:
-    enabled: true
-    baseURL: "${PLAUSIBLE_BASE_URL:https://plausible.example.com}"
-    scriptPath: "/js/script.hash.outbound-links.pageview-props.tagged-events.js"
-    domain: "${PLAUSIBLE_DOMAIN:example.com}"
-  collector:
-    enabled: false
+# ── Contact ───────────────────────────────────────────────────────────────────
+# enabled is set in pages.yaml. Only operational params here.
+# Defaults: maxLinks 2, rateLimit 3 req / 15 min
+# contact:
+#   maxLinks: 2
+#   rateLimit:
+#     requests: 3
+#     window: 15m
 
-consent:
-  enabled: true
-  categories:
-    necessary:
-      required: true
-      default: true
-    analytics:
-      required: false
-      default: false
-
-seo:
-  defaultOGImage: "/static/img/logo.webp"
-  defaultTwitterCard: "summary"
-
+# ── Gate (optional) ──────────────────────────────────────────────────────────
 # gate:
 #   enabled: true
 #   cookieSecret: "${GATE_SECRET}"
 #   codes:
 #     - code: "aurora-pine-7"
-#       label: "Interessent Demo"
+#       label: "Demo Access"

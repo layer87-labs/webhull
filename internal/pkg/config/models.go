@@ -139,17 +139,33 @@ type UIStringsConfig struct {
 // ContactFormConfig holds optional localised overrides for the contact form UI.
 // Only non-empty values override the built-in defaults — it is not necessary
 // to set every field. Useful for non-DE/EN languages or custom copy.
+// When Fields is non-empty it replaces ALL default fields — the site fully
+// controls which inputs appear and in what order.
 type ContactFormConfig struct {
 	Heading       string `yaml:"heading,omitempty"`
-	NameLabel     string `yaml:"nameLabel,omitempty"`
-	EmailLabel    string `yaml:"emailLabel,omitempty"`
-	SubjectLabel  string `yaml:"subjectLabel,omitempty"`
-	MessageLabel  string `yaml:"messageLabel,omitempty"`
 	SubmitText    string `yaml:"submitText,omitempty"`
 	SuccessMsg    string `yaml:"successMsg,omitempty"`
 	SuccessRefMsg string `yaml:"successRefMsg,omitempty"`
 	ErrorMsg      string `yaml:"errorMsg,omitempty"`
-	RequiredMsg   string `yaml:"requiredMsg,omitempty"`
+	// Fields replaces the default Name/Email/Subject/Message fields when non-empty.
+	Fields []FieldConfig `yaml:"fields,omitempty"`
+}
+
+// FieldConfig defines a single input field rendered in the contact form.
+type FieldConfig struct {
+	// Name is the HTML input name attribute and the JSON key sent to the server.
+	Name string `yaml:"name"`
+	// Label is the display label shown above the input.
+	Label string `yaml:"label"`
+	// Type is the HTML input type or special type: "text", "email", "tel", "textarea", "select". Defaults to "text".
+	Type string `yaml:"type,omitempty"`
+	// Required marks the field as mandatory.
+	Required bool `yaml:"required,omitempty"`
+	// Placeholder is optional hint text shown inside the input.
+	Placeholder string `yaml:"placeholder,omitempty"`
+	// Options lists the selectable values for type "select".
+	// Each entry is the option value (also used as display label).
+	Options []string `yaml:"options,omitempty"`
 }
 
 // PageConfig defines a single page with all language variants.
@@ -299,7 +315,7 @@ type ServerConfig struct {
 
 // HealthConfig holds health server settings.
 type HealthConfig struct {
-	Enabled        bool          `yaml:"enabled"`
+	Enabled        *bool         `yaml:"enabled"`
 	Host           string        `yaml:"host"`
 	Port           int           `yaml:"port"`
 	HealthPath     string        `yaml:"healthPath"`

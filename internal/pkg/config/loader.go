@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -96,11 +97,166 @@ func Load(configPath string, pagesPath string) (*SiteConfig, error) {
 		}
 	}
 
+	// Derive defaults from site identity (DRY: defined once)
+	applyDefaults(cfg)
+
 	if err := validate(cfg); err != nil {
 		return nil, fmt.Errorf("config validation failed: %w", err)
 	}
 
 	return cfg, nil
+}
+
+// applyDefaults fills empty fields with sensible defaults derived from site identity.
+// All defaults are only applied when the field is still at zero-value — explicit
+// configuration (from config.yaml or pages.yaml) always takes precedence.
+func applyDefaults(cfg *SiteConfig) {
+	// ── Server defaults ──────────────────────────────────────────────────────
+	if cfg.Server.Port == "" {
+		cfg.Server.Port = "8080"
+	}
+	if cfg.Server.Host == "" {
+		cfg.Server.Host = "0.0.0.0"
+	}
+	if cfg.Server.Environment == "" {
+		cfg.Server.Environment = "production"
+	}
+	if cfg.Server.ReadTimeout == 0 {
+		cfg.Server.ReadTimeout = 15 * time.Second
+	}
+	if cfg.Server.WriteTimeout == 0 {
+		cfg.Server.WriteTimeout = 15 * time.Second
+	}
+	if cfg.Server.IdleTimeout == 0 {
+		cfg.Server.IdleTimeout = 60 * time.Second
+	}
+	if cfg.Server.ShutdownTimeout == 0 {
+		cfg.Server.ShutdownTimeout = 30 * time.Second
+	}
+	if cfg.Server.CacheMaxAge == 0 {
+		cfg.Server.CacheMaxAge = 1 * time.Hour
+	}
+	if cfg.Server.StaticCacheMaxAge == 0 {
+		cfg.Server.StaticCacheMaxAge = 8760 * time.Hour // 1 year
+	}
+
+	// ── Health defaults ──────────────────────────────────────────────────────
+	// Health is enabled by default. To disable, set health.enabled: false explicitly.
+	if cfg.Health.Enabled == nil {
+		t := true
+		cfg.Health.Enabled = &t
+	}
+	if cfg.Health.Host == "" {
+		cfg.Health.Host = "0.0.0.0"
+	}
+	if cfg.Health.Port == 0 {
+		cfg.Health.Port = 8082
+	}
+	if cfg.Health.HealthPath == "" {
+		cfg.Health.HealthPath = "/health"
+	}
+	if cfg.Health.ReadyPath == "" {
+		cfg.Health.ReadyPath = "/ready"
+	}
+	if cfg.Health.MetricsPath == "" {
+		cfg.Health.MetricsPath = "/metrics"
+	}
+	if cfg.Health.Timeout == 0 {
+		cfg.Health.Timeout = 5 * time.Second
+	}
+
+	// ── I18n defaults ────────────────────────────────────────────────────────
+	if cfg.I18n.DefaultLanguage == "" {
+		cfg.I18n.DefaultLanguage = "de"
+	}
+	if len(cfg.I18n.Languages) == 0 {
+		cfg.I18n.Languages = []string{cfg.I18n.DefaultLanguage}
+	}
+
+	// ── Site defaults ────────────────────────────────────────────────────────
+	if cfg.Site.CopyrightStartYear == 0 {
+		cfg.Site.CopyrightStartYear = time.Now().Year()
+	}
+
+	// ── Contact defaults ─────────────────────────────────────────────────────
+	if cfg.Contact.MaxLinks == 0 {
+		cfg.Contact.MaxLinks = 2
+	}
+	if cfg.Contact.RateLimit.Requests == 0 {
+		cfg.Contact.RateLimit.Requests = 3
+	}
+	if cfg.Contact.RateLimit.Window == 0 {
+		cfg.Contact.RateLimit.Window = 15 * time.Minute
+	}
+
+	// ── Mail defaults ────────────────────────────────────────────────────────
+	if cfg.Mail.Port == 0 {
+		cfg.Mail.Port = 587
+	}
+
+	// ── Gate defaults ────────────────────────────────────────────────────────
+	if cfg.Gate.CookieName == "" {
+		cfg.Gate.CookieName = "gate_session"
+	}
+	if cfg.Gate.CookieMaxAge == 0 {
+		cfg.Gate.CookieMaxAge = 24 * time.Hour
+	}
+	if cfg.ArconGate.CookieName == "" {
+		cfg.ArconGate.CookieName = "arcon_session"
+	}
+	if cfg.ArconGate.CookieMaxAge == 0 {
+		cfg.ArconGate.CookieMaxAge = 8 * time.Hour
+	}
+	if cfg.ArconGate.Title == "" {
+		if cfg.Site.Name != "" {
+			cfg.ArconGate.Title = cfg.Site.Name + " – Access"
+		} else {
+			cfg.ArconGate.Title = "Access"
+		}
+	}
+
+	// ── Domain-derived defaults (DRY) ────────────────────────────────────────
+	if cfg.Site.BaseURL == "" {
+		return
+	}
+
+	domain := extractDomain(cfg.Site.BaseURL)
+	if domain == "" {
+		return
+	}
+
+	// Health: serviceName from site domain
+	if cfg.Health.ServiceName == "" {
+		cfg.Health.ServiceName = strings.ReplaceAll(domain, ".", "-")
+	}
+
+	// Analytics: plausible domain defaults to site domain
+	if cfg.Analytics.Plausible != nil && cfg.Analytics.Plausible.Domain == "" {
+		cfg.Analytics.Plausible.Domain = domain
+	}
+
+	// Mail: fromName defaults to site.name
+	if cfg.Mail.FromName == "" && cfg.Site.Name != "" {
+		cfg.Mail.FromName = cfg.Site.Name
+	}
+
+	// Mail: from address defaults to noreply@domain (override in ops config)
+	if cfg.Mail.From == "" {
+		cfg.Mail.From = "noreply@" + domain
+	}
+}
+
+// extractDomain returns the hostname from a URL string, stripping port if present.
+func extractDomain(rawURL string) string {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return ""
+	}
+	host := parsed.Hostname() // strips port
+	if host == "" || host == "localhost" {
+		return ""
+	}
+	return host
 }
 
 // mergePages overlays pages YAML data onto an existing SiteConfig.
@@ -157,7 +313,11 @@ func mergePages(cfg *SiteConfig, data []byte) error {
 		cfg.UI = overlay.UI
 	}
 
-	// Contact (recipients and subjects are content, not operational)
+	// Contact — pages file owns enabled state (behavior/design).
+	// Ops config owns operational params (maxLinks, rateLimit).
+	if overlay.Contact.Enabled {
+		cfg.Contact.Enabled = true
+	}
 	if len(overlay.Contact.Recipients) > 0 {
 		cfg.Contact.Recipients = overlay.Contact.Recipients
 	}
@@ -173,6 +333,62 @@ func mergePages(cfg *SiteConfig, data []byte) error {
 		cfg.Pages = overlay.Pages
 	}
 
+	// Consent i18n texts — pages file is authoritative for user-facing copy.
+	// The operational config (config.yaml) owns enabled/categories; pages.yaml owns i18n.
+	// If pages.yaml defines consent fully (enabled + categories), it takes precedence
+	// so consumer repos can own consent config without duplicating it in ops config.
+	if overlay.Consent.Enabled {
+		cfg.Consent.Enabled = true
+		if len(overlay.Consent.Categories) > 0 {
+			cfg.Consent.Categories = overlay.Consent.Categories
+		}
+	}
+	if len(overlay.Consent.I18n) > 0 {
+		if cfg.Consent.I18n == nil {
+			cfg.Consent.I18n = make(map[string]ConsentI18nConfig)
+		}
+		for lang, texts := range overlay.Consent.I18n {
+			cfg.Consent.I18n[lang] = texts
+		}
+	}
+
+	// Analytics — pages file can define analytics config so consumer repos
+	// own their analytics setup without needing it in the ops config.
+	if overlay.Analytics.Plausible != nil {
+		cfg.Analytics.Plausible = overlay.Analytics.Plausible
+	}
+	if overlay.Analytics.Collector != nil {
+		cfg.Analytics.Collector = overlay.Analytics.Collector
+	}
+
+	// SEO — pages file can define site-wide SEO defaults.
+	if overlay.SEO.DefaultOGImage != "" {
+		cfg.SEO.DefaultOGImage = overlay.SEO.DefaultOGImage
+	}
+	if overlay.SEO.DefaultTwitterCard != "" {
+		cfg.SEO.DefaultTwitterCard = overlay.SEO.DefaultTwitterCard
+	}
+	if len(overlay.SEO.GlobalJSONLD) > 0 {
+		cfg.SEO.GlobalJSONLD = overlay.SEO.GlobalJSONLD
+	}
+
+	// Mail identity — from/fromName are site identity, not credentials.
+	// Pages file can define these so ops config only needs host/port/credentials.
+	if overlay.Mail.From != "" {
+		cfg.Mail.From = overlay.Mail.From
+	}
+	if overlay.Mail.FromName != "" {
+		cfg.Mail.FromName = overlay.Mail.FromName
+	}
+	if len(overlay.Mail.Templates) > 0 {
+		if cfg.Mail.Templates == nil {
+			cfg.Mail.Templates = make(map[string]MailTemplateConfig)
+		}
+		for lang, tmpl := range overlay.Mail.Templates {
+			cfg.Mail.Templates[lang] = tmpl
+		}
+	}
+
 	return nil
 }
 
@@ -183,6 +399,8 @@ func Parse(data []byte) (*SiteConfig, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	applyDefaults(cfg)
 
 	if err := validate(cfg); err != nil {
 		return nil, fmt.Errorf("config validation failed: %w", err)
@@ -201,7 +419,6 @@ func parseRaw(data []byte) (*SiteConfig, error) {
 		return nil, fmt.Errorf("failed to parse config YAML: %w", err)
 	}
 
-	applyDefaults(cfg)
 	return cfg, nil
 }
 
@@ -222,86 +439,6 @@ func expandEnvSafe(s string) string {
 	})
 }
 
-// applyDefaults sets sensible defaults for missing values.
-func applyDefaults(cfg *SiteConfig) {
-	if cfg.Server.Port == "" {
-		cfg.Server.Port = envOrDefault("PORT", "8080")
-	}
-	if cfg.Server.Host == "" {
-		cfg.Server.Host = envOrDefault("HOST", "0.0.0.0")
-	}
-	if cfg.Server.Environment == "" {
-		cfg.Server.Environment = envOrDefault("ENVIRONMENT", "development")
-	}
-	if cfg.Server.ReadTimeout == 0 {
-		cfg.Server.ReadTimeout = 15 * time.Second
-	}
-	if cfg.Server.WriteTimeout == 0 {
-		cfg.Server.WriteTimeout = 15 * time.Second
-	}
-	if cfg.Server.IdleTimeout == 0 {
-		cfg.Server.IdleTimeout = 60 * time.Second
-	}
-	if cfg.Server.ShutdownTimeout == 0 {
-		cfg.Server.ShutdownTimeout = 30 * time.Second
-	}
-	if cfg.Server.CacheMaxAge == 0 {
-		cfg.Server.CacheMaxAge = 1 * time.Hour
-	}
-	if cfg.Server.StaticCacheMaxAge == 0 {
-		cfg.Server.StaticCacheMaxAge = 365 * 24 * time.Hour
-	}
-
-	if cfg.I18n.DefaultLanguage == "" {
-		cfg.I18n.DefaultLanguage = "de"
-	}
-	if len(cfg.I18n.Languages) == 0 {
-		cfg.I18n.Languages = []string{"de", "en"}
-	}
-
-	if cfg.Site.CopyrightStartYear == 0 {
-		cfg.Site.CopyrightStartYear = time.Now().Year()
-	}
-
-	if cfg.Contact.MaxLinks == 0 {
-		cfg.Contact.MaxLinks = 2
-	}
-	if cfg.Contact.RateLimit.Requests == 0 {
-		cfg.Contact.RateLimit.Requests = 3
-	}
-	if cfg.Contact.RateLimit.Window == 0 {
-		cfg.Contact.RateLimit.Window = 15 * time.Minute
-	}
-
-	// SMTP defaults
-	if cfg.Mail.Port == 0 {
-		cfg.Mail.Port = 587
-	}
-
-	// Gate defaults
-	if cfg.Gate.CookieName == "" {
-		cfg.Gate.CookieName = "gate_session"
-	}
-	if cfg.Gate.CookieMaxAge == 0 {
-		cfg.Gate.CookieMaxAge = 24 * time.Hour
-	}
-
-	// ArconGate defaults
-	if cfg.ArconGate.CookieName == "" {
-		cfg.ArconGate.CookieName = "arcon_session"
-	}
-	if cfg.ArconGate.CookieMaxAge == 0 {
-		cfg.ArconGate.CookieMaxAge = 8 * time.Hour
-	}
-	if cfg.ArconGate.Title == "" {
-		if cfg.Site.Name != "" {
-			cfg.ArconGate.Title = cfg.Site.Name + " – Access"
-		} else {
-			cfg.ArconGate.Title = "Access"
-		}
-	}
-}
-
 // validate checks the config for required fields and consistency.
 func validate(cfg *SiteConfig) error {
 	if cfg.Site.Name == "" {
@@ -311,11 +448,17 @@ func validate(cfg *SiteConfig) error {
 		return fmt.Errorf("site.baseURL is required")
 	}
 
-	// Pages are loaded separately via content.Load() — validate if present
+	// Pages are loaded separately via content.Load() — validate if present.
+	// Pages without an i18n block are treated as supplementary entries (e.g. providing
+	// SEO JSON-LD overrides) and are merged with content pages at startup; skip them here.
 	if len(cfg.Pages) > 0 {
-		// Validate i18n consistency
+		// Validate i18n consistency — only for pages that declare i18n data.
 		for _, lang := range cfg.I18n.Languages {
 			for _, page := range cfg.Pages {
+				if len(page.I18n) == 0 {
+					// Supplementary page (SEO/JSON-LD only) — will be merged with content later.
+					continue
+				}
 				if _, ok := page.I18n[lang]; !ok {
 					return fmt.Errorf("page %q is missing i18n config for language %q", page.ID, lang)
 				}
@@ -367,11 +510,4 @@ func validate(cfg *SiteConfig) error {
 	}
 
 	return nil
-}
-
-func envOrDefault(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
 }

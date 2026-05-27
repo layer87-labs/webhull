@@ -1,0 +1,269 @@
+/* webhull — built-in structural stylesheet
+ * Functional CSS for all webhull-owned components.
+ * Uses CSS custom properties that consumer stylesheets define.
+ * Load order: webhull.css → consumer style.css  (consumer wins on conflicts)
+ *
+ * Required CSS variables (define in consumer :root):
+ *   --nav-height, --max-width, --radius, --radius-btn
+ *   --bg, --bg-card, --fg, --fg-muted, --primary, --border
+ */
+
+/* ── Base custom property fallbacks (used only when consumer hasn't defined the variable) ── */
+:root {
+  --wh-nav:     var(--nav-height, 64px);
+  --wh-width:   var(--max-width, 1100px);
+  --wh-r:       var(--radius, .5rem);
+  --wh-r-btn:   var(--radius-btn, .25rem);
+  --wh-bg:      var(--bg, #111318);
+  --wh-bg-card: var(--bg-card, #1a1e26);
+  --wh-fg:      var(--fg, #e8ecf4);
+  --wh-muted:   var(--fg-muted, #888fa0);
+  --wh-primary: var(--primary, #4fc3f7);
+  --wh-border:  var(--border, rgba(255,255,255,.12));
+}
+
+/* ── Ensure [hidden] always wins, even against display:flex/grid rules ── */
+[hidden] { display: none !important; }
+
+/* ── Container ────────────────────────────────────────────────── */
+.container {
+  max-width: var(--wh-width);
+  margin-inline: auto;
+  padding-inline: 1.25rem;
+}
+
+/* ── Theme toggle — hidden by default; consumer enables if needed ── */
+.theme-toggle { display: none; }
+
+/* ── Content page (legal, 404, default, etc.) ────────────────── */
+.content-page,
+.legal-page {
+  padding-top:    calc(var(--wh-nav) + 3rem);
+  padding-bottom: 5rem;
+  min-height:     100vh;
+}
+
+.content-page h1,
+.legal-page h1 {
+  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  line-height: 1.15;
+  margin-bottom: 1.5rem;
+}
+
+.content-page h2,
+.legal-page h2 {
+  font-size: 1.15rem;
+  color: var(--wh-primary);
+  margin: 2rem 0 .4rem;
+}
+
+.content-page h3,
+.legal-page h3 {
+  font-size: 1rem;
+  margin: 1.25rem 0 .35rem;
+}
+
+.content-page p,
+.legal-page p {
+  margin-bottom: 1rem;
+  max-width: 72ch;
+  font-size: .95rem;
+  line-height: 1.7;
+}
+
+.content-page a,
+.legal-page a {
+  color: var(--wh-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.content-page a:hover,
+.legal-page a:hover { opacity: .82; }
+
+.content-page ul,
+.content-page ol,
+.legal-page ul,
+.legal-page ol {
+  margin: 0 0 1rem 1.5rem;
+}
+
+.content-page li,
+.legal-page li {
+  margin-bottom: .3rem;
+  font-size: .95rem;
+}
+
+/* ── Consent banner ───────────────────────────────────────────── */
+.consent-banner {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 1.25rem;
+  pointer-events: none;
+}
+
+.consent-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .5);
+  pointer-events: all;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+.consent-dialog {
+  position: relative;
+  z-index: 1;
+  background: var(--wh-bg-card);
+  border: 1px solid var(--wh-border);
+  border-radius: var(--wh-r);
+  padding: 1.5rem;
+  max-width: 520px;
+  width: 100%;
+  pointer-events: all;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, .45);
+}
+
+.consent-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: .45rem;
+  color: var(--wh-fg);
+}
+
+.consent-description {
+  font-size: .875rem;
+  color: var(--wh-muted);
+  margin-bottom: 1.25rem;
+  line-height: 1.55;
+}
+
+/* Category toggles */
+.consent-categories {
+  display: flex;
+  flex-direction: column;
+  gap: .6rem;
+  margin-bottom: 1rem;
+  padding: .75rem 0;
+  border-top: 1px solid var(--wh-border);
+}
+
+.consent-category-label {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  cursor: pointer;
+  font-size: .875rem;
+  color: var(--wh-fg);
+  width: 100%;
+  user-select: none;
+}
+
+.consent-category-label input[type="checkbox"] {
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
+  cursor: pointer;
+  accent-color: var(--wh-primary);
+}
+
+.consent-category-label input[disabled] {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+/* Action rows */
+.consent-actions {
+  display: flex;
+  gap: .5rem;
+  flex-wrap: wrap;
+  margin-top: .75rem;
+}
+
+.consent-customize-link {
+  margin-top: .5rem;
+}
+
+/* Buttons */
+.consent-btn {
+  flex: 1;
+  min-width: 0;
+  padding: .55rem 1.1rem;
+  border: 1px solid var(--wh-border);
+  border-radius: var(--wh-r-btn);
+  font-size: .875rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+  color: var(--wh-fg);
+  transition: background .15s, color .15s, border-color .15s, opacity .15s;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.consent-btn-accept {
+  background: var(--wh-primary);
+  color: var(--wh-bg);
+  border-color: var(--wh-primary);
+}
+
+.consent-btn-accept:hover  { opacity: .88; }
+.consent-btn-reject:hover,
+.consent-btn-save:hover    { background: rgba(255, 255, 255, .07); }
+
+.consent-link {
+  background: none;
+  border: none;
+  color: var(--wh-muted);
+  font-size: .8rem;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  padding: 0;
+}
+
+.consent-link:hover { color: var(--wh-fg); }
+
+/* ── Contact form (structural) ────────────────────────────────── */
+.contact-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 560px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+}
+
+.form-group label {
+  font-size: .875rem;
+  color: var(--wh-muted);
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+  background: var(--wh-bg-card);
+  color: var(--wh-fg);
+  border: 1px solid var(--wh-border);
+  border-radius: var(--wh-r-btn);
+  padding: .65rem .85rem;
+  font-size: .95rem;
+  width: 100%;
+  transition: border-color .15s;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--wh-primary);
+}
+
+.form-group textarea { min-height: 120px; resize: vertical; }

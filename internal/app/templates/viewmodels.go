@@ -146,25 +146,12 @@ func (pd *PageData) AssetPath(path string) string {
 }
 
 // ResolveContactTexts returns localised contact form texts for the current page language.
-// Non-empty values from ui.contactForm in site config override the built-in DE/EN defaults,
-// so only the fields that differ from the defaults need to be set in YAML.
+// Non-empty values from ui.contactForm in site config override the built-in defaults.
 func (pd *PageData) ResolveContactTexts() ContactFormTexts {
 	defaults := DefaultContactTexts(pd.LangCode())
 	cfg := pd.UI.ContactForm
 	if cfg.Heading != "" {
 		defaults.Heading = cfg.Heading
-	}
-	if cfg.NameLabel != "" {
-		defaults.NameLabel = cfg.NameLabel
-	}
-	if cfg.EmailLabel != "" {
-		defaults.EmailLabel = cfg.EmailLabel
-	}
-	if cfg.SubjectLabel != "" {
-		defaults.SubjectLabel = cfg.SubjectLabel
-	}
-	if cfg.MessageLabel != "" {
-		defaults.MessageLabel = cfg.MessageLabel
 	}
 	if cfg.SubmitText != "" {
 		defaults.SubmitText = cfg.SubmitText
@@ -178,8 +165,8 @@ func (pd *PageData) ResolveContactTexts() ContactFormTexts {
 	if cfg.ErrorMsg != "" {
 		defaults.ErrorMsg = cfg.ErrorMsg
 	}
-	if cfg.RequiredMsg != "" {
-		defaults.RequiredMsg = cfg.RequiredMsg
+	if len(cfg.Fields) > 0 {
+		defaults.Fields = cfg.Fields
 	}
 	return defaults
 }

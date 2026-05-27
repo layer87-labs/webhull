@@ -219,7 +219,13 @@ func (s *Server) handleContact() gin.HandlerFunc {
 			}
 		}
 
-		resp, err := s.Forms.Submit(c.Request.Context(), req, c.ClientIP(), c.Request.UserAgent(), lang)
+		// Resolve field definitions: site config → fallback to built-in defaults
+		fieldDefs := templates.DefaultFields(lang.String())
+		if uiCfg, ok := s.cfg.UI[lang.String()]; ok && len(uiCfg.ContactForm.Fields) > 0 {
+			fieldDefs = uiCfg.ContactForm.Fields
+		}
+
+		resp, err := s.Forms.Submit(c.Request.Context(), req, c.ClientIP(), c.Request.UserAgent(), lang, fieldDefs)
 		if err != nil {
 			s.logger.Error("contact form error", zap.Error(err))
 			c.JSON(http.StatusTooManyRequests, resp)

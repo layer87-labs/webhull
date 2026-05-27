@@ -3,15 +3,14 @@ package pages
 import "github.com/layer87-labs/webhull/internal/app/templates"
 
 // LegalPage renders legal pages (imprint, privacy, etc.) with body HTML.
+// The content file is responsible for its own structural wrapper (e.g.
+// <section class="legal-page"><div class="container">...</div></section>).
 templ LegalPage(data *templates.PageData) {
 	@templates.Layout(data) {
-		<main class="content-page">
-			<div class="container">
-				<h1>{ data.Page.Title }</h1>
-				if data.HasContent("body") {
-					@templ.Raw(data.Content("body"))
-				}
-			</div>
+		<main>
+			if data.HasContent("body") {
+				@templ.Raw(data.Content("body"))
+			}
 		</main>
 	}
 }

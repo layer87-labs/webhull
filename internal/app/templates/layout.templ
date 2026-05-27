@@ -51,6 +51,7 @@ templ Layout(data *PageData) {
 		if data.Site.FaviconPath != "" {
 			<link rel="icon" type="image/webp" href={ data.Site.FaviconPath }/>
 		}
+		<link rel="stylesheet" href={ data.AssetPath("/static/css/webhull.css") }/>
 		<link rel="stylesheet" href={ data.AssetPath("/static/css/style.css") }/>
 		<script src={ data.AssetPath("/static/js/theme-init.js") }></script>
 		if data.Analytics.PlausibleEnabled {

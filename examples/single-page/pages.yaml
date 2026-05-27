@@ -129,16 +129,34 @@ seo:
 
 # ── Contact form ──────────────────────────────────────────────────────────────
 # Rendered inline at #contact after all content sections.
-# SMTP config lives in deploy/config.yaml.
+# SMTP credentials live in deploy/config.yaml (ops config).
 
 contact:
   enabled: true
   recipientName: "Northgate Software"
   recipients: ["${CONTACT_EMAIL:hello@example.com}"]
   subject:
-    de: "Neue Kontaktanfrage"
-    en: "New contact request"
-  maxLinks: 3
-  rateLimit:
-    requests: 3
-    window: 15m
+    de: "Neue Kontaktanfrage: {{NAME}}"
+    en: "New contact request: {{NAME}}"
+
+# ── Analytics ─────────────────────────────────────────────────────────────────
+# domain: auto-derived from site.baseURL
+
+analytics:
+  plausible:
+    enabled: true
+    baseURL: "${PLAUSIBLE_BASE_URL:https://plausible.example.com}"
+    scriptPath: "/js/script.hash.outbound-links.pageview-props.tagged-events.js"
+
+# ── Mail identity ─────────────────────────────────────────────────────────────
+# from/fromName: auto-derived from site.baseURL / site.name
+# Ops config only provides host, port, username, password, useTLS.
+
+mail:
+  templates:
+    de:
+      subject: "Vielen Dank für Ihre Nachricht"
+      bodyFile: "mail/de-confirmation.html"
+    en:
+      subject: "Thank you for your message"
+      bodyFile: "mail/en-confirmation.html"
