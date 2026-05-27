@@ -1,7 +1,9 @@
 package forms
 
 import (
+	"crypto/rand"
 	"crypto/tls"
+	"encoding/hex"
 	"fmt"
 	"net/smtp"
 	"strings"
@@ -43,6 +45,42 @@ func (m *SMTPMailer) SendHTML(to, subject, htmlBody string) error {
 	return m.send(to, msg)
 }
 
+// SendMultipart sends a multipart/alternative email (plain text + HTML).
+func (m *SMTPMailer) SendMultipart(to, subject, plainBody, htmlBody string) error {
+	boundaryBytes := make([]byte, 12)
+	_, _ = rand.Read(boundaryBytes)
+	boundary := "_wh_" + hex.EncodeToString(boundaryBytes)
+
+	fromHeader := m.from
+	if m.fromName != "" {
+		fromHeader = fmt.Sprintf("%s <%s>", m.fromName, m.from)
+	}
+
+	var msg strings.Builder
+	msg.WriteString(fmt.Sprintf("From: %s\r\n", fromHeader))
+	msg.WriteString(fmt.Sprintf("To: %s\r\n", sanitizeHeader(to)))
+	msg.WriteString(fmt.Sprintf("Subject: %s\r\n", sanitizeHeader(subject)))
+	msg.WriteString("MIME-Version: 1.0\r\n")
+	msg.WriteString(fmt.Sprintf("Content-Type: multipart/alternative; boundary=\"%s\"\r\n", boundary))
+	msg.WriteString("\r\n")
+
+	// Plain-text part
+	msg.WriteString(fmt.Sprintf("--%s\r\n", boundary))
+	msg.WriteString("Content-Type: text/plain; charset=\"utf-8\"\r\n\r\n")
+	msg.WriteString(plainBody)
+	msg.WriteString("\r\n")
+
+	// HTML part
+	msg.WriteString(fmt.Sprintf("--%s\r\n", boundary))
+	msg.WriteString("Content-Type: text/html; charset=\"utf-8\"\r\n\r\n")
+	msg.WriteString(htmlBody)
+	msg.WriteString("\r\n")
+
+	msg.WriteString(fmt.Sprintf("--%s--\r\n", boundary))
+
+	return m.send(to, msg.String())
+}
+
 func (m *SMTPMailer) buildMessage(to, subject, body, contentType string) string {
 	var msg strings.Builder
 	fromHeader := m.from
@@ -71,7 +109,13 @@ func sanitizeHeader(s string) string {
 
 func (m *SMTPMailer) send(to, msg string) error {
 	addr := fmt.Sprintf("%s:%d", m.host, m.port)
-	auth := smtp.PlainAuth("", m.username, m.password, m.host)
+
+	// Only authenticate when credentials are configured (skips AUTH for local
+	// catch-all servers like Mailpit that don't support or need it).
+	var auth smtp.Auth
+	if m.username != "" {
+		auth = smtp.PlainAuth("", m.username, m.password, m.host)
+	}
 
 	if m.useTLS {
 		return m.sendTLS(addr, auth, to, msg)
@@ -96,8 +140,10 @@ func (m *SMTPMailer) sendTLS(addr string, auth smtp.Auth, to, msg string) error 
 	}
 	defer client.Close()
 
-	if err = client.Auth(auth); err != nil {
-		return fmt.Errorf("SMTP auth failed: %w", err)
+	if auth != nil {
+		if err = client.Auth(auth); err != nil {
+			return fmt.Errorf("SMTP auth failed: %w", err)
+		}
 	}
 	if err = client.Mail(m.from); err != nil {
 		return fmt.Errorf("SMTP MAIL FROM failed: %w", err)

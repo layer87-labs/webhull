@@ -14,29 +14,68 @@
   var submitBtn = document.getElementById('contact-submit');
   var originalBtnText = submitBtn ? submitBtn.textContent : '';
 
+  // Per-field error display helpers
+  function setFieldError(input, msg) {
+    var field = input.closest('.form-field, .contact__field');
+    if (!field) return;
+    field.classList.add('form-field--error');
+    var hint = field.querySelector('.form-field-hint');
+    if (!hint) {
+      hint = document.createElement('span');
+      hint.className = 'form-field-hint';
+      hint.setAttribute('role', 'alert');
+      field.appendChild(hint);
+    }
+    hint.textContent = msg;
+  }
+
+  function clearFieldErrors() {
+    form.querySelectorAll('.form-field--error, .contact__field--error').forEach(function (el) {
+      el.classList.remove('form-field--error', 'contact__field--error');
+    });
+    form.querySelectorAll('.form-field-hint').forEach(function (el) { el.remove(); });
+  }
+
+  // Basic email format check
+  function isValidEmail(val) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
+  }
+
+  // Returns true when all fields pass client-side validation
+  function validate() {
+    var ok = true;
+    form.querySelectorAll('.form-input, .form-textarea, .form-select').forEach(function (input) {
+      var val = input.value.trim();
+      if (input.required && !val) {
+        setFieldError(input, 'Pflichtfeld');
+        ok = false;
+      } else if (input.type === 'email' && val && !isValidEmail(val)) {
+        setFieldError(input, 'Bitte eine gültige E-Mail-Adresse eingeben');
+        ok = false;
+      }
+    });
+    return ok;
+  }
+
   form.addEventListener('submit', function (e) {
     e.preventDefault();
 
-    // Hide previous messages
+    // Reset state
     if (successEl) successEl.setAttribute('hidden', '');
     if (errorEl) errorEl.setAttribute('hidden', '');
+    clearFieldErrors();
 
-    // Collect form data
+    if (!validate()) return;
+
+    // Collect all form fields dynamically (skip honeypot)
+    var fields = {};
+    form.querySelectorAll('.form-input, .form-textarea, .form-select').forEach(function (input) {
+      if (input.name) fields[input.name] = input.value.trim();
+    });
     var data = {
-      name: form.querySelector('[name="name"]').value.trim(),
-      email: form.querySelector('[name="email"]').value.trim(),
-      subject: form.querySelector('[name="subject"]').value.trim(),
-      message: form.querySelector('[name="message"]').value.trim(),
-      website: form.querySelector('[name="website"]').value // honeypot
+      fields: fields,
+      website: (form.querySelector('[name="website"]') || {}).value || ''
     };
-
-    // Client-side validation
-    if (!data.name || !data.email || !data.subject || !data.message) {
-      if (errorEl) {
-        errorEl.removeAttribute('hidden');
-      }
-      return;
-    }
 
     // Disable button and show loading state
     if (submitBtn) {
@@ -61,13 +100,7 @@
           form.reset();
           form.style.display = 'none';
         } else {
-          if (errorEl) {
-            // Show server error message if available
-            if (result.body.message && result.body.message !== 'invalid request') {
-              errorEl.querySelector('p').textContent = result.body.message;
-            }
-            errorEl.removeAttribute('hidden');
-          }
+          if (errorEl) errorEl.removeAttribute('hidden');
         }
       })
       .catch(function () {
@@ -79,5 +112,15 @@
           submitBtn.textContent = originalBtnText;
         }
       });
+  });
+
+  // Clear per-field error on input
+  form.addEventListener('input', function (e) {
+    var field = e.target.closest('.form-field--error, .contact__field--error');
+    if (field) {
+      field.classList.remove('form-field--error', 'contact__field--error');
+      var hint = field.querySelector('.form-field-hint');
+      if (hint) hint.remove();
+    }
   });
 })();
