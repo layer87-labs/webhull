@@ -109,10 +109,14 @@ func (s *Service) Submit(ctx context.Context, req ContactRequest, ip, userAgent 
 	// Derive display name for logging (conventional "name" field)
 	nameVal := strings.TrimSpace(req.Fields["name"])
 
+	// Sanitize user-controlled values before logging to prevent log forging.
+	safeNameVal := strings.NewReplacer("\n", "", "\r", "").Replace(nameVal)
+	safeEmailVal := strings.NewReplacer("\n", "", "\r", "").Replace(emailVal)
+
 	s.logger.Info("contact form submitted",
 		zap.String("contactID", contactID),
-		zap.String("name", nameVal),
-		zap.String("email", emailVal),
+		zap.String("name", safeNameVal),
+		zap.String("email", safeEmailVal),
 		zap.String("ip", ip),
 		zap.String("lang", lang.String()),
 		zap.Time("timestamp", time.Now()))
@@ -138,7 +142,7 @@ func (s *Service) Submit(ctx context.Context, req ContactRequest, ip, userAgent 
 			if err := s.mailer.SendHTML(req.Fields["email"], subject, body); err != nil {
 				s.logger.Warn("failed to send auto-reply",
 					zap.String("contactID", contactID),
-					zap.String("email", emailVal),
+					zap.String("email", safeEmailVal),
 					zap.Error(err))
 			}
 		}
