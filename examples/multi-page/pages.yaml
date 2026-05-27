@@ -155,6 +155,47 @@ consent:
         necessary: "Notwendig"
         analytics: "Analyse"
 
+# ── Contact form ──────────────────────────────────────────────────────────────
+# enabled here = form is shown. Operational params (rateLimit, maxLinks) have
+# sane defaults and can be overridden in config.yaml if needed.
+
+contact:
+  enabled: true
+  recipientName: "Northgate Software"
+  recipients:
+    - "hello@northgate-software.example.com"
+  subject:
+    en: "New contact: {{NAME}}"
+    de: "Neue Nachricht: {{NAME}}"
+
+# ── Analytics ─────────────────────────────────────────────────────────────────
+# Define analytics here so the site repo owns it. The ops config (config.yaml)
+# only needs SMTP credentials — analytics config is baked into the image.
+
+analytics:
+  plausible:
+    enabled: true
+    baseURL: "${PLAUSIBLE_BASE_URL:https://plausible.example.com}"
+    scriptPath: "/js/script.hash.outbound-links.pageview-props.tagged-events.js"
+    # domain: auto-derived from site.baseURL (northgate-software.example.com)
+  collector:
+    enabled: false
+
+# ── Mail identity ─────────────────────────────────────────────────────────────
+# from/fromName and templates are site identity, not credentials.
+# The ops config only provides host, port, username, password, useTLS.
+
+mail:
+  # from: auto-derived from site.baseURL → noreply@{domain}
+  # fromName: auto-derived from site.name
+  templates:
+    en:
+      subject: "Thank you for your message"
+      bodyFile: "mail/en-confirmation.html"
+    de:
+      subject: "Vielen Dank für Ihre Nachricht"
+      bodyFile: "mail/de-confirmation.html"
+
 # ── SEO defaults ──────────────────────────────────────────────────────────────
 
 seo:

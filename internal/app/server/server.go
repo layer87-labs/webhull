@@ -82,7 +82,7 @@ func New(cfg *config.SiteConfig, logger *zap.Logger) (*Server, error) {
 	}
 
 	// Initialize health server (if enabled)
-	if cfg.Health.Enabled {
+	if cfg.Health.Enabled != nil && *cfg.Health.Enabled {
 		s.healthStartedAt = time.Now().UTC()
 
 		healthPath := defaultPath(cfg.Health.HealthPath, "/health")

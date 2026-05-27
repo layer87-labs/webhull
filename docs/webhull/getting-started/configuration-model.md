@@ -26,7 +26,7 @@ static/
 
 ## Split config (production)
 
-Operational settings (server ports, SMTP, analytics credentials, gate secrets) are separated from site structure (navigation, UI strings, content directory path).
+Operational settings (server ports, SMTP credentials, health probes) are separated from site structure (navigation, UI strings, content directory path, consent, analytics, SEO, mail identity).
 
 ```bash
 webhull -config deploy/config.yaml -pages site/pages.yaml
@@ -34,10 +34,11 @@ webhull -config deploy/config.yaml -pages site/pages.yaml
 
 ```
 deploy/
-  config.yaml      ← operational: server, mail, analytics, gate
+  config.yaml      ← operational: server, health, mail credentials, contact rate limits
                       mounted as a Kubernetes ConfigMap
 site/
-  pages.yaml       ← site structure: identity, i18n, nav, ui strings
+  pages.yaml       ← site structure: identity, i18n, nav, ui strings, consent,
+                      analytics, seo, mail identity (from/fromName/templates)
                       baked into the container image
   content/
     de/
@@ -46,6 +47,44 @@ site/
 ```
 
 **Why split?** Operational config contains environment-specific values (ports, credentials) that differ between staging and production. Site structure is stable and belongs in the image. Mounting only `config.yaml` as a ConfigMap means you can update server settings without rebuilding the container.
+
+### What goes where?
+
+| Category | `config.yaml` (ops) | `pages.yaml` (site) |
+|----------|---------------------|---------------------|
+| Server (port, host, timeouts) | override | — |
+| Health probes | override | — |
+| SMTP connection (host, port, username, password, useTLS) | ✅ | — |
+| Mail identity (from, fromName, templates) | override | ✅ |
+| Contact form enabled | — | ✅ |
+| Contact operational params (maxLinks, rateLimit) | override | — |
+| Contact recipients & subject | — | ✅ |
+| Analytics (plausible, collector) | — | ✅ |
+| Consent (enabled, categories, i18n) | — | ✅ |
+| SEO defaults (ogImage, twitterCard, jsonLD) | — | ✅ |
+| Site identity (name, baseURL, logo) | — | ✅ |
+| Navigation | — | ✅ |
+| UI strings | — | ✅ |
+| Gate secrets | ✅ | — |
+
+**"override"** = has sane defaults; only set in ops config if you need to change them.
+
+### Auto-derived fields (DRY)
+
+These fields are auto-derived from `site.baseURL` when not explicitly set:
+
+| Field | Derived from | Example |
+|-------|-------------|---------|
+| `analytics.plausible.domain` | `site.baseURL` hostname | `studio-optimays.de` |
+| `mail.from` | `noreply@` + hostname | `noreply@studio-optimays.de` |
+| `mail.fromName` | `site.name` | `Studio OptiMayS` |
+| `health.serviceName` | hostname (dots → dashes) | `studio-optimays-de` |
+
+All auto-derived values can be overridden in either config file.
+
+Both files support `${VAR:default}` expansion — so even values in `pages.yaml` can reference env vars (e.g. `${PLAUSIBLE_BASE_URL:https://...}`).
+
+When a field is defined in **both** files, `pages.yaml` takes precedence (it's merged on top of `config.yaml`). This ensures the image is the single source of truth for site behaviour.
 
 ## Environment variable expansion
 
@@ -89,11 +128,13 @@ webhull -config site.yaml -validate
 ## Config loading order
 
 ```
-1. Read configPath (required)
-2. Expand ${VAR:default} throughout
-3. Apply defaults (port=8080, environment=development, etc.)
-4. If pagesPath is set: read pagesPath, merge site structure fields
-5. If contentDir is set: scan for HTML files, parse frontmatter + body
+1. Read configPath (required) — parse YAML, expand ${VAR:default}
+2. If pagesPath is set: read pagesPath, expand, merge onto config
+   (pages.yaml wins for: site, i18n, nav, ui, consent, analytics, seo,
+    contact.enabled, recipients, subject, mail identity)
+3. Apply defaults (fills zero-value fields with sane production defaults)
+4. Auto-derive domain-dependent fields from site.baseURL
+5. Resolve file paths (contentDir, staticDir, mail templates)
 6. Validate merged config
 7. Start server
 ```
