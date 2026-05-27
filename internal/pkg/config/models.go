@@ -315,7 +315,7 @@ type ServerConfig struct {
 
 // HealthConfig holds health server settings.
 type HealthConfig struct {
-	Enabled        bool          `yaml:"enabled"`
+	Enabled        *bool         `yaml:"enabled"`
 	Host           string        `yaml:"host"`
 	Port           int           `yaml:"port"`
 	HealthPath     string        `yaml:"healthPath"`
