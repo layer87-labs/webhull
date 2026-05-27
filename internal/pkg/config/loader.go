@@ -47,13 +47,27 @@ func Load(configPath string, pagesPath string) (*SiteConfig, error) {
 	}
 	contentDir := filepath.Dir(contentBase)
 
-	if cfg.ContentDir != "" {
+	// Auto-detect staticDir: if not configured, look for a "static/" directory
+	// next to the pages file (or config file in monolithic mode). This covers the
+	// common case — COPY site/static/ site/static/ in a Containerfile — with zero
+	// config required from the operator.
+	if cfg.Server.StaticDir == "" {
+		candidate := filepath.Join(contentDir, "static")
+		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
+			cfg.Server.StaticDir = candidate // already absolute — skip Join below
+		}
+	}
+
+	// Resolve relative paths to absolute using the directory that owns the file.
+	// Absolute paths are used as-is (filepath.Join would corrupt them on non-Unix
+	// systems or produce double-segments like /app/site/app/site/static).
+	if cfg.ContentDir != "" && !filepath.IsAbs(cfg.ContentDir) {
 		cfg.ContentDir = filepath.Join(contentDir, cfg.ContentDir)
 	}
-	if cfg.Server.StaticDir != "" {
+	if cfg.Server.StaticDir != "" && !filepath.IsAbs(cfg.Server.StaticDir) {
 		cfg.Server.StaticDir = filepath.Join(contentDir, cfg.Server.StaticDir)
 	}
-	if cfg.ArconGate.ContentDir != "" {
+	if cfg.ArconGate.ContentDir != "" && !filepath.IsAbs(cfg.ArconGate.ContentDir) {
 		cfg.ArconGate.ContentDir = filepath.Join(contentDir, cfg.ArconGate.ContentDir)
 	}
 
