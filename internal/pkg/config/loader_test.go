@@ -1,6 +1,8 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -277,5 +279,158 @@ func TestLoad_FileNotFound(t *testing.T) {
 	_, err := Load("/nonexistent/file.yaml", "")
 	if err == nil {
 		t.Fatal("expected error for missing file")
+	}
+}
+
+// minimalPagesYAML returns the minimum valid pages YAML for split-config tests.
+func minimalPagesYAML() string {
+	return `
+site:
+  name: "TestSite"
+  baseURL: "https://example.com"
+i18n:
+  defaultLanguage: "de"
+  languages: ["de"]
+contentDir: "content"
+`
+}
+
+// minimalConfigYAML returns a minimal operational config YAML.
+func minimalConfigYAML() string {
+	return `
+mail:
+  host: "localhost"
+  port: 1025
+`
+}
+
+// writeFile is a test helper that writes content to a file, creating parent dirs.
+func writeFile(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", filepath.Dir(path), err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write %s: %v", path, err)
+	}
+}
+
+func TestLoad_StaticDir_AutoDetect(t *testing.T) {
+	// When server.staticDir is NOT set but a static/ directory exists next to
+	// pages.yaml, Load() should auto-detect and set StaticDir to its absolute path.
+	dir := t.TempDir()
+
+	configPath := filepath.Join(dir, "config", "config.yaml")
+	pagesPath := filepath.Join(dir, "site", "pages.yaml")
+	staticDir := filepath.Join(dir, "site", "static")
+
+	writeFile(t, configPath, minimalConfigYAML())
+	writeFile(t, pagesPath, minimalPagesYAML())
+	os.MkdirAll(staticDir, 0o755)
+	writeFile(t, filepath.Join(staticDir, "css", "style.css"), "body{}")
+
+	cfg, err := Load(configPath, pagesPath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if cfg.Server.StaticDir != staticDir {
+		t.Errorf("expected StaticDir %q (auto-detected), got %q", staticDir, cfg.Server.StaticDir)
+	}
+}
+
+func TestLoad_StaticDir_AutoDetect_NoStaticDir(t *testing.T) {
+	// When server.staticDir is NOT set and no static/ directory exists,
+	// StaticDir should remain empty (no panic, no error).
+	dir := t.TempDir()
+
+	configPath := filepath.Join(dir, "config", "config.yaml")
+	pagesPath := filepath.Join(dir, "site", "pages.yaml")
+
+	writeFile(t, configPath, minimalConfigYAML())
+	writeFile(t, pagesPath, minimalPagesYAML())
+	// No static/ directory created.
+
+	cfg, err := Load(configPath, pagesPath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if cfg.Server.StaticDir != "" {
+		t.Errorf("expected empty StaticDir when no static/ directory exists, got %q", cfg.Server.StaticDir)
+	}
+}
+
+func TestLoad_StaticDir_RelativePath(t *testing.T) {
+	// A relative staticDir is resolved relative to the pages.yaml directory.
+	dir := t.TempDir()
+
+	configPath := filepath.Join(dir, "config", "config.yaml")
+	pagesPath := filepath.Join(dir, "site", "pages.yaml")
+	staticDir := filepath.Join(dir, "site", "assets")
+
+	configYAML := minimalConfigYAML() + "\nserver:\n  staticDir: \"assets\"\n"
+	writeFile(t, configPath, configYAML)
+	writeFile(t, pagesPath, minimalPagesYAML())
+	os.MkdirAll(staticDir, 0o755)
+
+	cfg, err := Load(configPath, pagesPath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	want := staticDir
+	if cfg.Server.StaticDir != want {
+		t.Errorf("expected StaticDir %q, got %q", want, cfg.Server.StaticDir)
+	}
+}
+
+func TestLoad_StaticDir_AbsolutePath(t *testing.T) {
+	// An absolute staticDir must not be joined again with pagesDir.
+	// Previously filepath.Join(pagesDir, "/abs/path") produced /pagesDir/abs/path.
+	dir := t.TempDir()
+
+	configPath := filepath.Join(dir, "config", "config.yaml")
+	pagesPath := filepath.Join(dir, "site", "pages.yaml")
+	staticDir := filepath.Join(dir, "elsewhere", "static")
+
+	configYAML := minimalConfigYAML() + "\nserver:\n  staticDir: \"" + staticDir + "\"\n"
+	writeFile(t, configPath, configYAML)
+	writeFile(t, pagesPath, minimalPagesYAML())
+	os.MkdirAll(staticDir, 0o755)
+
+	cfg, err := Load(configPath, pagesPath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if cfg.Server.StaticDir != staticDir {
+		t.Errorf("absolute staticDir should be used as-is: want %q, got %q", staticDir, cfg.Server.StaticDir)
+	}
+}
+
+func TestLoad_StaticDir_AutoDetect_SkippedWhenExplicitlySet(t *testing.T) {
+	// When server.staticDir is explicitly set, auto-detection must not override it,
+	// even if a static/ directory also exists next to pages.yaml.
+	dir := t.TempDir()
+
+	configPath := filepath.Join(dir, "config", "config.yaml")
+	pagesPath := filepath.Join(dir, "site", "pages.yaml")
+	staticDir := filepath.Join(dir, "site", "custom-static")
+	autoDetectDir := filepath.Join(dir, "site", "static")
+
+	configYAML := minimalConfigYAML() + "\nserver:\n  staticDir: \"custom-static\"\n"
+	writeFile(t, configPath, configYAML)
+	writeFile(t, pagesPath, minimalPagesYAML())
+	os.MkdirAll(staticDir, 0o755)
+	os.MkdirAll(autoDetectDir, 0o755) // should not be picked up
+
+	cfg, err := Load(configPath, pagesPath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if cfg.Server.StaticDir != staticDir {
+		t.Errorf("explicit staticDir should win over auto-detect: want %q, got %q", staticDir, cfg.Server.StaticDir)
 	}
 }

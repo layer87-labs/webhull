@@ -158,6 +158,12 @@ func (s *Server) initServices() error {
 	// Bot detector
 	s.Bot = security.NewBotDetector()
 
+	// Assets (cache-busting hashes)
+	if s.cfg.Server.StaticDir == "" {
+		s.logger.Warn("server.staticDir is not configured and no static/ directory was auto-detected — " +
+			"user static files (CSS, images, fonts) will not be served at /static/*; " +
+			`add server.staticDir: "static" to config.yaml or place a static/ directory next to pages.yaml`)
+	}
 	// Assets (cache-busting hashes): scan embedded built-ins first, then
 	// user staticDir so user files always take precedence.
 	s.Assets = assets.NewService(s.cfg.Server.StaticDir, "/static", s.logger)
