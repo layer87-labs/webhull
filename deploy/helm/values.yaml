@@ -162,13 +162,27 @@ gateway:
   tlsSecretName: ""      # auto-derived from fullname if empty
   sectionNameHttp: "http"      # listener sectionName for HTTP (redirect route)
   sectionNameHttps: "https"    # listener sectionName for HTTPS (main route)
-  # Additional hostnames (e.g. www alias)
-  # Each entry gets its own parentRef in both HTTPRoutes:
-  #   - gateway.create: true  → sectionName derived from hostname (https-www-example-com)
-  #   - gateway.create: false → sectionName follows https-additional-<index> convention
-  #                             (used by centrally-managed Gateway resources)
+  # Additional hostnames (e.g. www alias).
+  # Each entry is added to spec.hostnames and gets its own parentRef.
   additionalHosts: []
     # - "www.example.com"
+
+  # sectionNames for additional HTTPS listeners (parallel to additionalHosts).
+  # gateway.create: true  → ignored; sectionName is derived from the hostname
+  #                          (e.g. www.example.com → https-www-example-com)
+  # gateway.create: false → required when the shared Gateway does not follow the
+  #                          https-additional-<index> default (see below).
+  #                          If omitted, defaults to https-additional-0, -1, …
+  additionalSectionNamesHttps: []
+    # - "https-additional-0"
+
+  # sectionNames for additional HTTP listeners (parallel to additionalHosts).
+  # gateway.create: true  → ignored; derived as http-<host-with-dashes>
+  # gateway.create: false → only needed if the shared Gateway exposes per-host
+  #                          HTTP listeners. Leave empty if a single HTTP listener
+  #                          covers all hostnames (most common setup).
+  additionalSectionNamesHttp: []
+    # - "http-additional-0"
   annotations: {}
 
 # ── TLS Certificate (cert-manager) ────────────────────────────────────────────

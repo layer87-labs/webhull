@@ -21,16 +21,17 @@ spec:
     sectionName: {{ .Values.gateway.sectionNameHttp | default "http" }}
   {{- range $i, $host := .Values.gateway.additionalHosts }}
   {{- if $.Values.gateway.create }}
-  # HTTP listener for additional host — named http-<host-with-dashes> by the gateway template
   - group: gateway.networking.k8s.io
     kind: Gateway
     name: {{ include "webhull.gatewayName" $ }}
     namespace: {{ $.Values.gateway.namespace }}
     sectionName: "http-{{ $host | replace "." "-" }}"
-  {{- else }}
-  # Shared gateway: additional HTTP listeners are not created per-host;
-  # the apex HTTP listener covers www redirects via host matching at the gateway level.
-  # No extra parentRef needed for HTTP on shared gateways.
+  {{- else if $.Values.gateway.additionalSectionNamesHttp }}
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: {{ include "webhull.gatewayName" $ }}
+    namespace: {{ $.Values.gateway.namespace }}
+    sectionName: {{ index $.Values.gateway.additionalSectionNamesHttp $i | quote }}
   {{- end }}
   {{- end }}
   rules:
@@ -65,22 +66,17 @@ spec:
     namespace: {{ .Values.gateway.namespace }}
     sectionName: {{ .Values.gateway.sectionNameHttps | default "https" }}
   {{- range $i, $host := .Values.gateway.additionalHosts }}
-  {{- if $.Values.gateway.create }}
-  # Self-managed gateway: listener is named https-<host-with-dashes>
   - group: gateway.networking.k8s.io
     kind: Gateway
     name: {{ include "webhull.gatewayName" $ }}
     namespace: {{ $.Values.gateway.namespace }}
+    {{- if $.Values.gateway.create }}
     sectionName: "https-{{ $host | replace "." "-" }}"
-  {{- else }}
-  # Shared external gateway: listeners follow the https-additional-<index> naming
-  # convention used by the centrally-managed Gateway resources in istio-ingress.
-  - group: gateway.networking.k8s.io
-    kind: Gateway
-    name: {{ include "webhull.gatewayName" $ }}
-    namespace: {{ $.Values.gateway.namespace }}
+    {{- else if $.Values.gateway.additionalSectionNamesHttps }}
+    sectionName: {{ index $.Values.gateway.additionalSectionNamesHttps $i | quote }}
+    {{- else }}
     sectionName: "https-additional-{{ $i }}"
-  {{- end }}
+    {{- end }}
   {{- end }}
   rules:
   - matches:
