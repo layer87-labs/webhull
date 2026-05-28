@@ -40,6 +40,10 @@ image:
 service:
   port: 80
   targetPort: 8080
+  annotations: {}
+    # Custom annotations on the Service, e.g. for prometheus SD:
+    # monitoring.layer87.de/blackbox-probe: "true"
+    # monitoring.layer87.de/blackbox-target: "https://example.com"
 
 metricsService:
   enabled: true
@@ -150,6 +154,7 @@ podDisruptionBudget:
   enabled: false
   minAvailable: 1
 
+# ── Monitoring ────────────────────────────────────────────────────────────────
 # ── Gateway API ────────────────────────────────────────────────────────────────
 # Creates Gateway + HTTPRoutes + Certificate for the site.
 gateway:
