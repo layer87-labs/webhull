@@ -4,11 +4,9 @@ metadata:
   name: {{ include "webhull.fullname" . }}
   labels:
     {{- include "webhull.labels" . | nindent 4 }}
-  {{- if .Values.monitoring.blackboxProbe.enabled }}
+  {{- with .Values.service.annotations }}
   annotations:
-    monitoring.layer87.de/blackbox-probe: "true"
-    monitoring.layer87.de/blackbox-target: {{ .Values.monitoring.blackboxProbe.target | default (printf "https://%s" .Values.gateway.host) | quote }}
-    monitoring.layer87.de/blackbox-module: {{ .Values.monitoring.blackboxProbe.module | default "http_2xx" | quote }}
+    {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
   type: ClusterIP

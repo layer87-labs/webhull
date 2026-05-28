@@ -40,6 +40,10 @@ image:
 service:
   port: 80
   targetPort: 8080
+  annotations: {}
+    # Custom annotations on the Service, e.g. for prometheus SD:
+    # monitoring.layer87.de/blackbox-probe: "true"
+    # monitoring.layer87.de/blackbox-target: "https://example.com"
 
 metricsService:
   enabled: true
@@ -151,16 +155,7 @@ podDisruptionBudget:
   minAvailable: 1
 
 # ── Monitoring ────────────────────────────────────────────────────────────────
-# Annotates the Service so the OTel Gateway prometheus SD job can discover
-# this instance and probe it via the blackbox exporter automatically.
-# No manual target list in gateway.yaml needed.
-monitoring:
-  blackboxProbe:
-    enabled: false
-    # target: URL to probe. Defaults to https://<gateway.host> if omitted.
-    target: ""
-    # module: blackbox exporter module to use.
-    module: "http_2xx"
+# ── Gateway API ────────────────────────────────────────────────────────────────
 # Creates Gateway + HTTPRoutes + Certificate for the site.
 gateway:
   enabled: false
