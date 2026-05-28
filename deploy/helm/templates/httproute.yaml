@@ -19,6 +19,21 @@ spec:
     name: {{ include "webhull.gatewayName" . }}
     namespace: {{ .Values.gateway.namespace }}
     sectionName: {{ .Values.gateway.sectionNameHttp | default "http" }}
+  {{- range $i, $host := .Values.gateway.additionalHosts }}
+  {{- if $.Values.gateway.create }}
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: {{ include "webhull.gatewayName" $ }}
+    namespace: {{ $.Values.gateway.namespace }}
+    sectionName: "http-{{ $host | replace "." "-" }}"
+  {{- else if $.Values.gateway.additionalSectionNamesHttp }}
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: {{ include "webhull.gatewayName" $ }}
+    namespace: {{ $.Values.gateway.namespace }}
+    sectionName: {{ index $.Values.gateway.additionalSectionNamesHttp $i | quote }}
+  {{- end }}
+  {{- end }}
   rules:
     - filters:
         - type: RequestRedirect
@@ -50,6 +65,19 @@ spec:
     name: {{ include "webhull.gatewayName" . }}
     namespace: {{ .Values.gateway.namespace }}
     sectionName: {{ .Values.gateway.sectionNameHttps | default "https" }}
+  {{- range $i, $host := .Values.gateway.additionalHosts }}
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: {{ include "webhull.gatewayName" $ }}
+    namespace: {{ $.Values.gateway.namespace }}
+    {{- if $.Values.gateway.create }}
+    sectionName: "https-{{ $host | replace "." "-" }}"
+    {{- else if $.Values.gateway.additionalSectionNamesHttps }}
+    sectionName: {{ index $.Values.gateway.additionalSectionNamesHttps $i | quote }}
+    {{- else }}
+    sectionName: "https-additional-{{ $i }}"
+    {{- end }}
+  {{- end }}
   rules:
   - matches:
     - path:
