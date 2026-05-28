@@ -162,7 +162,11 @@ gateway:
   tlsSecretName: ""      # auto-derived from fullname if empty
   sectionNameHttp: "http"      # listener sectionName for HTTP (redirect route)
   sectionNameHttps: "https"    # listener sectionName for HTTPS (main route)
-  # Additional hostnames (e.g. www redirect)
+  # Additional hostnames (e.g. www alias)
+  # Each entry gets its own parentRef in both HTTPRoutes:
+  #   - gateway.create: true  → sectionName derived from hostname (https-www-example-com)
+  #   - gateway.create: false → sectionName follows https-additional-<index> convention
+  #                             (used by centrally-managed Gateway resources)
   additionalHosts: []
     # - "www.example.com"
   annotations: {}
