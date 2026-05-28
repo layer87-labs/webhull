@@ -150,7 +150,17 @@ podDisruptionBudget:
   enabled: false
   minAvailable: 1
 
-# ── Gateway API ────────────────────────────────────────────────────────────────
+# ── Monitoring ────────────────────────────────────────────────────────────────
+# Annotates the Service so the OTel Gateway prometheus SD job can discover
+# this instance and probe it via the blackbox exporter automatically.
+# No manual target list in gateway.yaml needed.
+monitoring:
+  blackboxProbe:
+    enabled: false
+    # target: URL to probe. Defaults to https://<gateway.host> if omitted.
+    target: ""
+    # module: blackbox exporter module to use.
+    module: "http_2xx"
 # Creates Gateway + HTTPRoutes + Certificate for the site.
 gateway:
   enabled: false
