@@ -18,6 +18,21 @@ webhull serves complete, production-ready websites from YAML configuration and H
 - **Contact form** — built-in SMTP dispatch with spam filtering and rate limiting
 - **Distroless container** — under 20 MB, no shell, no runtime overhead
 
+## For Coding Agents
+
+webhull ships a [Pi Skill](skills/webhull/SKILL.md) — load it and build production-ready sites without additional explanation.
+
+```
+skills/webhull/
+├── SKILL.md                   # Quickstart, rules, enforcement gate
+└── references/
+    ├── CONFIG.md              # Full pages.yaml + config.yaml reference
+    ├── PATTERNS.md            # Copy-paste configs for 4 site types
+    └── WORKFLOW.md            # Step-by-step: empty dir → deployed site
+```
+
+See [AGENTS.md](AGENTS.md) for general coding-agent guidance.
+
 ## Quickstart
 
 ```bash
