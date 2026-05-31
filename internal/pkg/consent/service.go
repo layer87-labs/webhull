@@ -150,15 +150,20 @@ func (s *Service) buildBypassState(mode string) *State {
 
 // writeBypassCookie writes the bypass consent state as a response cookie so
 // that subsequent requests from the same automated tool are handled without
-// a bypass signal. Cookie attributes match the regular consent cookie but
-// omit Secure so local (HTTP) audit tools work out of the box.
+// repeating the bypass signal check. Cookie attributes match the regular
+// consent cookie (Secure=true, SameSite=Lax).
+//
+// Note: in plain-HTTP contexts (e.g. localhost audits) the browser/tool will
+// silently drop a Secure cookie. This is intentional — the bypass detection
+// re-runs on every request via headers or query parameters, so the cookie is
+// only a performance optimisation, not a requirement.
 func (s *Service) writeBypassCookie(c *gin.Context, state *State) {
 	value, err := json.Marshal(state)
 	if err != nil {
 		return
 	}
 	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie(CookieName, string(value), 365*24*3600, "/", "", false, false)
+	c.SetCookie(CookieName, string(value), 365*24*3600, "/", "", true, false)
 }
 
 // readCookie parses the consent cookie into a State.
