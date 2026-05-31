@@ -72,7 +72,8 @@ templ Layout(data *PageData) {
 		if data.Analytics.CollectorEnabled {
 			<script defer src={ data.AssetPath("/static/js/analytics.js") }></script>
 		}
-		if data.ConsentConfig != nil && data.ConsentConfig.Enabled {
+		// consent.js is suppressed for automated audit tools (bypass mode).
+		if data.ConsentConfig != nil && data.ConsentConfig.Enabled && !data.ConsentBypassed() {
 			<script defer src={ data.AssetPath("/static/js/consent.js") }></script>
 		}
 	</body>

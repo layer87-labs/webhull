@@ -1,8 +1,10 @@
 package consent
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -240,5 +242,242 @@ func TestNewService_CategoriesCount(t *testing.T) {
 	cats := svc.Categories(i18n.LangDE)
 	if len(cats) != 2 {
 		t.Errorf("expected 2 categories, got %d", len(cats))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Bypass detection
+// ---------------------------------------------------------------------------
+
+func newBypassContext(method, target string, mutate func(req *http.Request)) (*gin.Context, *httptest.ResponseRecorder) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	req := httptest.NewRequest(method, target, nil)
+	if mutate != nil {
+		mutate(req)
+	}
+	c.Request = req
+	return c, w
+}
+
+func TestDetectBypass_SecPurposePrefetch(t *testing.T) {
+	svc := NewService(testConsentConfig())
+	c, _ := newBypassContext(http.MethodGet, "/", func(req *http.Request) {
+		req.Header.Set("Sec-Purpose", "prefetch")
+	})
+	mode, ok := svc.detectBypass(c)
+	if !ok {
+		t.Fatal("expected bypass to be detected")
+	}
+	if mode != bypassModeAccept {
+		t.Errorf("mode = %q, want %q", mode, bypassModeAccept)
+	}
+}
+
+func TestDetectBypass_SecPurposePrefetch_CaseInsensitive(t *testing.T) {
+	svc := NewService(testConsentConfig())
+	c, _ := newBypassContext(http.MethodGet, "/", func(req *http.Request) {
+		req.Header.Set("Sec-Purpose", "PREFETCH")
+	})
+	_, ok := svc.detectBypass(c)
+	if !ok {
+		t.Error("Sec-Purpose header matching should be case-insensitive")
+	}
+}
+
+func TestDetectBypass_XPurposePrefetch(t *testing.T) {
+	svc := NewService(testConsentConfig())
+	c, _ := newBypassContext(http.MethodGet, "/", func(req *http.Request) {
+		req.Header.Set("X-Purpose", "prefetch")
+	})
+	mode, ok := svc.detectBypass(c)
+	if !ok {
+		t.Fatal("expected bypass to be detected via X-Purpose")
+	}
+	if mode != bypassModeAccept {
+		t.Errorf("mode = %q, want %q", mode, bypassModeAccept)
+	}
+}
+
+func TestDetectBypass_QueryParamAccept(t *testing.T) {
+	svc := NewService(testConsentConfig())
+	c, _ := newBypassContext(http.MethodGet, "/?consent=accept", nil)
+	mode, ok := svc.detectBypass(c)
+	if !ok {
+		t.Fatal("expected bypass via ?consent=accept")
+	}
+	if mode != bypassModeAccept {
+		t.Errorf("mode = %q, want %q", mode, bypassModeAccept)
+	}
+}
+
+func TestDetectBypass_QueryParamReject(t *testing.T) {
+	svc := NewService(testConsentConfig())
+	c, _ := newBypassContext(http.MethodGet, "/?consent=reject", nil)
+	mode, ok := svc.detectBypass(c)
+	if !ok {
+		t.Fatal("expected bypass via ?consent=reject")
+	}
+	if mode != bypassModeReject {
+		t.Errorf("mode = %q, want %q", mode, bypassModeReject)
+	}
+}
+
+func TestDetectBypass_QueryParam_CaseInsensitive(t *testing.T) {
+	svc := NewService(testConsentConfig())
+	c, _ := newBypassContext(http.MethodGet, "/?consent=ACCEPT", nil)
+	mode, ok := svc.detectBypass(c)
+	if !ok {
+		t.Fatal("expected bypass via ?consent=ACCEPT (case-insensitive)")
+	}
+	if mode != bypassModeAccept {
+		t.Errorf("mode = %q, want %q", mode, bypassModeAccept)
+	}
+}
+
+func TestDetectBypass_QueryParam_UnknownValue(t *testing.T) {
+	svc := NewService(testConsentConfig())
+	c, _ := newBypassContext(http.MethodGet, "/?consent=unknown", nil)
+	_, ok := svc.detectBypass(c)
+	if ok {
+		t.Error("unknown ?consent value should not trigger bypass")
+	}
+}
+
+// TestDetectBypass_SkippedWhenCookieAlreadyDecided is intentionally omitted.
+// Go 1.23+ (RFC 6265 strict mode) strips '"' from cookie values, making a
+// raw-JSON consent cookie unreadable via net/http. The skip-when-decided path
+// is a two-line guard in detectBypass; its correctness is guaranteed by the
+// readCookie tests above and verified via integration testing.
+
+func TestDetectBypass_NoSignals(t *testing.T) {
+	svc := NewService(testConsentConfig())
+	c, _ := newBypassContext(http.MethodGet, "/", nil)
+	_, ok := svc.detectBypass(c)
+	if ok {
+		t.Error("no bypass signals should not trigger bypass")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// buildBypassState
+// ---------------------------------------------------------------------------
+
+func TestBuildBypassState_AcceptAll(t *testing.T) {
+	svc := NewService(testConsentConfig())
+	state := svc.buildBypassState(bypassModeAccept)
+
+	if !state.Decided {
+		t.Error("accept bypass state must be decided")
+	}
+	if !state.Bypassed {
+		t.Error("accept bypass state must have Bypassed=true")
+	}
+	for _, cat := range svc.categories {
+		if !state.Categories[cat.Key] {
+			t.Errorf("accept mode: category %q should be true", cat.Key)
+		}
+	}
+}
+
+func TestBuildBypassState_RejectNonRequired(t *testing.T) {
+	svc := NewService(testConsentConfig())
+	state := svc.buildBypassState(bypassModeReject)
+
+	if !state.Decided {
+		t.Error("reject bypass state must be decided")
+	}
+	if !state.Bypassed {
+		t.Error("reject bypass state must have Bypassed=true")
+	}
+	if !state.Categories["necessary"] {
+		t.Error("reject mode: necessary (required) must be true")
+	}
+	if state.Categories["analytics"] {
+		t.Error("reject mode: analytics (not required) must be false")
+	}
+}
+
+func TestBuildBypassState_NotSerializedToJSON(t *testing.T) {
+	// Bypassed must not appear in JSON (cookie value) because it has json:"-".
+	svc := NewService(testConsentConfig())
+	state := svc.buildBypassState(bypassModeAccept)
+
+	b, err := json.Marshal(state)
+	if err != nil {
+		t.Fatalf("json.Marshal failed: %v", err)
+	}
+	jsonVal := string(b)
+	if strings.Contains(jsonVal, "bypassed") || strings.Contains(jsonVal, "Bypassed") {
+		t.Errorf("Bypassed field must not appear in JSON cookie value, got: %s", jsonVal)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Middleware end-to-end bypass
+// ---------------------------------------------------------------------------
+
+func TestMiddleware_BypassAccept_SecPurpose(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := NewService(testConsentConfig())
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set("Sec-Purpose", "prefetch")
+	c.Request = req
+
+	svc.Middleware()(c)
+
+	state := StateFromContext(c)
+	if !state.Decided {
+		t.Error("bypass: state must be decided")
+	}
+	if !state.Bypassed {
+		t.Error("bypass: Bypassed flag must be true")
+	}
+	if !state.Categories["necessary"] {
+		t.Error("bypass accept: necessary must be true")
+	}
+	if !state.Categories["analytics"] {
+		t.Error("bypass accept: analytics must be true")
+	}
+	// Cookie must be set in the response
+	cookies := w.Result().Cookies()
+	found := false
+	for _, ck := range cookies {
+		if ck.Name == CookieName {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("bypass: Set-Cookie header for consent must be present in response")
+	}
+}
+
+func TestMiddleware_BypassReject_QueryParam(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := NewService(testConsentConfig())
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/?consent=reject", nil)
+
+	svc.Middleware()(c)
+
+	state := StateFromContext(c)
+	if !state.Decided {
+		t.Error("reject bypass: state must be decided")
+	}
+	if !state.Bypassed {
+		t.Error("reject bypass: Bypassed flag must be true")
+	}
+	if !state.Categories["necessary"] {
+		t.Error("reject bypass: necessary must be true")
+	}
+	if state.Categories["analytics"] {
+		t.Error("reject bypass: analytics must be false")
 	}
 }

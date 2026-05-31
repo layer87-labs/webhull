@@ -7,6 +7,11 @@ type State struct {
 
 	// Categories maps category key → accepted (true/false).
 	Categories map[string]bool `json:"categories"`
+
+	// Bypassed is true when consent was resolved by the server-side bypass
+	// middleware (e.g. Lighthouse, Playwright, Unlighthouse). It is a
+	// transient, request-scoped flag — never serialised to the cookie.
+	Bypassed bool `json:"-"`
 }
 
 // Category defines a single consent category.
