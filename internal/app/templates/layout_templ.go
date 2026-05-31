@@ -469,7 +469,7 @@ func Layout(data *PageData) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		if data.ConsentConfig != nil && data.ConsentConfig.Enabled {
+		if data.ConsentConfig != nil && data.ConsentConfig.Enabled && !data.ConsentBypassed() {
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "<script defer src=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -477,7 +477,7 @@ func Layout(data *PageData) templ.Component {
 			var templ_7745c5c3_Var25 string
 			templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.ResolveAttributeValue(data.AssetPath("/static/js/consent.js"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/layout.templ`, Line: 76, Col: 62}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/layout.templ`, Line: 77, Col: 62}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var25)
 			if templ_7745c5c3_Err != nil {

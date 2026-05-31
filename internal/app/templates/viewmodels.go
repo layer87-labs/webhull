@@ -172,9 +172,19 @@ func (pd *PageData) ResolveContactTexts() ContactFormTexts {
 }
 
 // ShowConsentBanner returns true if the consent banner should be displayed.
+// Returns false when the request was handled by the server-side bypass
+// middleware (automated tools, Lighthouse, Unlighthouse, Playwright).
 func (pd *PageData) ShowConsentBanner() bool {
 	return pd.ConsentConfig != nil &&
 		pd.ConsentConfig.Enabled &&
 		pd.Consent != nil &&
-		!pd.Consent.Decided
+		!pd.Consent.Decided &&
+		!pd.Consent.Bypassed
+}
+
+// ConsentBypassed returns true when the current request was handled by the
+// server-side consent bypass middleware. Used by the layout template to
+// suppress consent.js inclusion for automated audit tools.
+func (pd *PageData) ConsentBypassed() bool {
+	return pd.Consent != nil && pd.Consent.Bypassed
 }
