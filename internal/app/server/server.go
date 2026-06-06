@@ -393,6 +393,7 @@ func (s *Server) setupRoutes() {
 			continue // root already registered above
 		}
 		protected.GET("/"+slug, s.handlePage(slug))
+		protected.HEAD("/"+slug, s.handlePage(slug))
 	}
 
 	// Contact form endpoint
