@@ -209,5 +209,10 @@ templ HomePage(data *templates.PageData) {
 				</div>
 			</section>
 		}
+
+		// Instagram feed section
+		if data.InstagramFeed != nil {
+			@templates.InstagramFeed(data.InstagramFeed)
+		}
 	}
 }

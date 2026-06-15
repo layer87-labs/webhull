@@ -81,6 +81,20 @@ type SiteConfig struct {
 	//       - code: "cedar-frost-9"
 	//         label: "Demo Interessent"
 	ArconGate ArconGateConfig `yaml:"arconGate"`
+
+	// Instagram feed (optional) — fetches and renders Instagram posts via the Graph API.
+	// Requires a Meta app with instagram_basic + pages_read_engagement permissions.
+	//
+	// Example config:
+	//
+	//   instagram:
+	//     enabled: true
+	//     accessToken: "${INSTAGRAM_ACCESS_TOKEN}"
+	//     userID: "${INSTAGRAM_USER_ID}"
+	//     selectionMode: "latest_n"
+	//     count: 6
+	//     cacheTTL: "15m"
+	Instagram InstagramConfig `yaml:"instagram"`
 }
 
 // SiteIdentity defines the website's identity.
@@ -406,6 +420,63 @@ type ArconGateConfig struct {
 	// Codes is the list of valid plaintext access codes.
 	// At least one entry is required when enabled=true.
 	Codes []GateCode `yaml:"codes"`
+}
+
+// InstagramConfig configures the optional Instagram feed integration.
+// Posts are fetched via the Instagram Graph API (read-only) and rendered
+// as a server-side HTML component with lazy-loaded images.
+//
+// AccessToken and UserID are sensitive — always use ${VAR} expansion, never plaintext.
+type InstagramConfig struct {
+	// Enabled activates the Instagram feed feature. Default: false.
+	Enabled bool `yaml:"enabled"`
+
+	// AccessToken is a long-lived Instagram Graph API user access token.
+	// Use ${INSTAGRAM_ACCESS_TOKEN} to inject via environment variable.
+	AccessToken string `yaml:"accessToken"`
+
+	// UserID is the Instagram Business/Creator account ID (numeric string).
+	// Use ${INSTAGRAM_USER_ID} to inject via environment variable.
+	UserID string `yaml:"userID"`
+
+	// SelectionMode controls which posts are shown.
+	//   "latest_n"       — most recent N posts by timestamp (default)
+	//   "top_engagement" — top N by like_count + comments_count from the latest batch
+	//   "manual"         — only posts listed in manualPostIDs (no API call needed for content)
+	SelectionMode string `yaml:"selectionMode"`
+
+	// Count is how many posts to display in the feed. Default: 6.
+	Count int `yaml:"count"`
+
+	// CacheTTL controls how often the API is called. Default: 15m.
+	// IG media URLs expire, so a shorter TTL ensures fresh URLs.
+	CacheTTL time.Duration `yaml:"cacheTTL"`
+
+	// ManualPostIDs is used only when selectionMode is "manual".
+	// Lists specific IG media IDs to display (static curation).
+	ManualPostIDs []string `yaml:"manualPostIDs,omitempty"`
+
+	// FetchMultiplier is the multiplier applied to Count to fetch a larger
+	// batch from the API before local filtering/ranking. Default: 4.
+	// Example: Count=6, FetchMultiplier=4 → fetch up to 24 posts.
+	FetchMultiplier int `yaml:"fetchMultiplier,omitempty"`
+
+	// ExcludeVideo when true filters out VIDEO and IGTV posts.
+	// Video posts show a still frame only; set to false to include them. Default: true.
+	ExcludeVideo bool `yaml:"excludeVideo"`
+
+	// FilterMediaProductType limits to specific surfaces. Default: ["FEED"].
+	// Available: FEED, STORY, REELS, IGTV. Stories and Reels are rarely useful
+	// for website embeds.
+	FilterMediaProductType []string `yaml:"filterMediaProductType,omitempty"`
+
+	// TokenRefreshDaysBefore is how many days before expiry the token is refreshed.
+	// Tokens expire after ~60 days; refresh 7 days before by default.
+	TokenRefreshDaysBefore int `yaml:"tokenRefreshDaysBefore,omitempty"`
+
+	// AppSecret is the Meta app secret, required for token exchange.
+	// Use ${INSTAGRAM_APP_SECRET} to inject via environment variable.
+	AppSecret string `yaml:"appSecret"`
 }
 
 // MailTemplateConfig defines a response mail template per language.

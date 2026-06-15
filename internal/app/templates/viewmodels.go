@@ -1,6 +1,8 @@
 package templates
 
 import (
+	"time"
+
 	"github.com/layer87-labs/webhull/internal/pkg/assets"
 	"github.com/layer87-labs/webhull/internal/pkg/config"
 	"github.com/layer87-labs/webhull/internal/pkg/consent"
@@ -55,6 +57,10 @@ type PageData struct {
 
 	// Assets provides cache-busted asset paths.
 	Assets *assets.Service
+
+	// InstagramFeed holds Instagram posts for rendering the feed component.
+	// Nil when the Instagram service is disabled or has no posts.
+	InstagramFeed *InstagramFeedData
 }
 
 // SiteData holds global site identity for template rendering.
@@ -187,4 +193,34 @@ func (pd *PageData) ShowConsentBanner() bool {
 // suppress consent.js inclusion for automated audit tools.
 func (pd *PageData) ConsentBypassed() bool {
 	return pd.Consent != nil && pd.Consent.Bypassed
+}
+
+// InstagramFeedData holds Instagram feed data for template rendering.
+type InstagramFeedData struct {
+	// Posts is the list of posts to render.
+	Posts []InstagramPost
+
+	// Username is the connected Instagram account username (from the first post).
+	Username string
+
+	// ProfileURL is the link to the Instagram profile.
+	ProfileURL string
+
+	// ShowEngagement controls whether like/comment counts are rendered.
+	ShowEngagement bool
+}
+
+// InstagramPost represents a single Instagram post in the template view model.
+// This is a flat copy of instagram.Post for use in templates without importing
+// the instagram package from the templ layer.
+type InstagramPost struct {
+	ID            string
+	Caption       string
+	MediaType     string
+	MediaURL      string
+	Permalink     string
+	Timestamp     time.Time
+	Username      string
+	LikeCount     int
+	CommentsCount int
 }

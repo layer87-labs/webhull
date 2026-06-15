@@ -4,3 +4,7 @@ build/
 *.out
 .air.toml
 *.log
+
+/.pi/teams/**
+/.pi-lens/**
+/.pi/branch-guard.json

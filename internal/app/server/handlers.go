@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
@@ -196,6 +197,47 @@ func (s *Server) buildPageData(page *pages.Page, consentState *consent.State) *t
 		IsBot:          s.Bot.IsBot(""), // will be set per-request below
 		ContactEnabled: s.cfg.Contact.Enabled,
 		Assets:         s.Assets,
+		InstagramFeed:  s.buildInstagramFeed(),
+	}
+}
+
+// buildInstagramFeed builds Instagram feed data from the instagram service.
+// Returns nil when the service is disabled or has no posts.
+func (s *Server) buildInstagramFeed() *templates.InstagramFeedData {
+	if s.Instagram == nil || !s.Instagram.HasPosts() {
+		return nil
+	}
+
+	posts := s.Instagram.GetPosts(context.Background())
+	if len(posts) == 0 {
+		return nil
+	}
+
+	username := ""
+	if len(posts) > 0 {
+		username = posts[0].Username
+	}
+
+	tmplPosts := make([]templates.InstagramPost, 0, len(posts))
+	for _, p := range posts {
+		tmplPosts = append(tmplPosts, templates.InstagramPost{
+			ID:            p.ID,
+			Caption:       p.Caption,
+			MediaType:     p.MediaType,
+			MediaURL:      p.MediaURL,
+			Permalink:     p.Permalink,
+			Timestamp:     p.Timestamp,
+			Username:      p.Username,
+			LikeCount:     p.LikeCount,
+			CommentsCount: p.CommentsCount,
+		})
+	}
+
+	return &templates.InstagramFeedData{
+		Posts:          tmplPosts,
+		Username:       username,
+		ProfileURL:     fmt.Sprintf("https://instagram.com/%s", username),
+		ShowEngagement: true,
 	}
 }
 

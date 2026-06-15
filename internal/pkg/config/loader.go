@@ -215,6 +215,29 @@ func applyDefaults(cfg *SiteConfig) {
 		}
 	}
 
+	// ── Instagram defaults ───────────────────────────────────────────────────
+	if cfg.Instagram.Enabled {
+		if cfg.Instagram.SelectionMode == "" {
+			cfg.Instagram.SelectionMode = "latest_n"
+		}
+		if cfg.Instagram.Count == 0 {
+			cfg.Instagram.Count = 6
+		}
+		if cfg.Instagram.CacheTTL == 0 {
+			cfg.Instagram.CacheTTL = 15 * time.Minute
+		}
+		if cfg.Instagram.FetchMultiplier == 0 {
+			cfg.Instagram.FetchMultiplier = 4
+		}
+		if len(cfg.Instagram.FilterMediaProductType) == 0 {
+			cfg.Instagram.FilterMediaProductType = []string{"FEED"}
+		}
+		if cfg.Instagram.TokenRefreshDaysBefore == 0 {
+			cfg.Instagram.TokenRefreshDaysBefore = 7
+		}
+		// ExcludeVideo defaults to true via Go zero value — works out of the box.
+	}
+
 	// ── Domain-derived defaults (DRY) ────────────────────────────────────────
 	if cfg.Site.BaseURL == "" {
 		return
@@ -506,6 +529,35 @@ func validate(cfg *SiteConfig) error {
 		}
 		if cfg.ArconGate.ContentDir == "" {
 			return fmt.Errorf("arconGate.contentDir is required when arconGate.enabled=true")
+		}
+	}
+
+	// Instagram validation
+	if cfg.Instagram.Enabled {
+		if cfg.Instagram.AccessToken == "" {
+			return fmt.Errorf("instagram.accessToken is required when instagram.enabled=true")
+		}
+		if cfg.Instagram.UserID == "" {
+			return fmt.Errorf("instagram.userID is required when instagram.enabled=true")
+		}
+		switch cfg.Instagram.SelectionMode {
+		case "latest_n", "top_engagement":
+			// valid — no extra checks
+		case "manual":
+			if len(cfg.Instagram.ManualPostIDs) == 0 {
+				return fmt.Errorf("instagram.manualPostIDs is required when selectionMode is 'manual'")
+			}
+		default:
+			return fmt.Errorf("instagram.selectionMode must be one of: latest_n, top_engagement, manual")
+		}
+		if cfg.Instagram.Count < 1 {
+			return fmt.Errorf("instagram.count must be >= 1")
+		}
+		if cfg.Instagram.FetchMultiplier < 1 {
+			return fmt.Errorf("instagram.fetchMultiplier must be >= 1")
+		}
+		if cfg.Instagram.AppSecret == "" {
+			return fmt.Errorf("instagram.appSecret is required when instagram.enabled=true (needed for token refresh)")
 		}
 	}
 

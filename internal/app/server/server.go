@@ -22,6 +22,7 @@ import (
 	"github.com/layer87-labs/webhull/internal/pkg/forms"
 	"github.com/layer87-labs/webhull/internal/pkg/gate"
 	"github.com/layer87-labs/webhull/internal/pkg/i18n"
+	"github.com/layer87-labs/webhull/internal/pkg/instagram"
 	"github.com/layer87-labs/webhull/internal/pkg/middleware"
 	"github.com/layer87-labs/webhull/internal/pkg/navigation"
 	"github.com/layer87-labs/webhull/internal/pkg/pages"
@@ -48,8 +49,9 @@ type Server struct {
 	SEO        *seo.Service
 	Bot        *security.BotDetector
 	Assets     *assets.Service
-	Gate       *gate.Service // nil when gate is disabled
-	ArconGate  *gate.Service // nil when arcon gate is disabled
+	Gate       *gate.Service      // nil when gate is disabled
+	ArconGate  *gate.Service      // nil when arcon gate is disabled
+	Instagram  *instagram.Service // nil when instagram is disabled
 
 	// gateLimiter is a dedicated rate limiter for /gate POST submissions.
 	gateLimiter *security.RateLimiter
@@ -203,6 +205,28 @@ func (s *Server) initServices() error {
 			Window:      15 * time.Minute,
 			CleanupTick: 5 * time.Minute,
 		}, s.logger)
+	}
+
+	// Instagram feed (optional)
+	if s.cfg.Instagram.Enabled {
+		igCfg := s.cfg.Instagram
+		feedReq := instagram.FeedRequest{
+			SelectionMode:          instagram.SelectionMode(igCfg.SelectionMode),
+			Count:                  igCfg.Count,
+			FetchMultiplier:        igCfg.FetchMultiplier,
+			ManualPostIDs:          igCfg.ManualPostIDs,
+			ExcludeVideo:           igCfg.ExcludeVideo,
+			FilterMediaProductType: igCfg.FilterMediaProductType,
+		}
+		s.Instagram = instagram.NewService(
+			feedReq,
+			igCfg.AccessToken,
+			igCfg.UserID,
+			igCfg.AppSecret,
+			igCfg.CacheTTL,
+			igCfg.TokenRefreshDaysBefore,
+			s.logger,
+		)
 	}
 
 	// Arcon Gate (optional) — protects only /arcon/*
@@ -472,6 +496,9 @@ func (s *Server) Start() error {
 
 	// Cleanup
 	s.Analytics.Close()
+	if s.Instagram != nil {
+		s.Instagram.Stop()
+	}
 
 	// Shutdown health server
 	if s.healthSrv != nil {
