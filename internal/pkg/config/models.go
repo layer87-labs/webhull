@@ -144,6 +144,7 @@ type UIStringsConfig struct {
 type ContactFormConfig struct {
 	Heading       string `yaml:"heading,omitempty"`
 	SubmitText    string `yaml:"submitText,omitempty"`
+	SubmitIcon    string `yaml:"submitIcon,omitempty"`
 	SuccessMsg    string `yaml:"successMsg,omitempty"`
 	SuccessRefMsg string `yaml:"successRefMsg,omitempty"`
 	ErrorMsg      string `yaml:"errorMsg,omitempty"`

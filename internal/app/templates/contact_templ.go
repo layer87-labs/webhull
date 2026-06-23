@@ -22,8 +22,11 @@ func fieldInputType(t string) string {
 
 // ContactFormTexts holds the localized form labels and messages.
 type ContactFormTexts struct {
-	Heading       string
-	SubmitText    string
+	Heading    string
+	SubmitText string
+	// SubmitIcon is an optional raw HTML snippet (e.g. inline SVG) rendered
+	// inside the submit button before the label. Empty means no icon.
+	SubmitIcon    string
 	SuccessMsg    string
 	SuccessRefMsg string
 	ErrorMsg      string
@@ -33,42 +36,28 @@ type ContactFormTexts struct {
 }
 
 // DefaultFields returns the built-in 4-field form for the given language.
+// Languages are looked up from contactTranslations; falls back to "de" if not found.
 func DefaultFields(lang string) []config.FieldConfig {
-	if lang == "en" {
-		return []config.FieldConfig{
-			{Name: "name", Label: "Name", Type: "text", Required: true},
-			{Name: "email", Label: "Email", Type: "email", Required: true},
-			{Name: "subject", Label: "Subject", Type: "text", Required: true},
-			{Name: "message", Label: "Message", Type: "textarea", Required: true},
-		}
+	if t, ok := contactTranslations[lang]; ok {
+		return t.fields
 	}
-	return []config.FieldConfig{
-		{Name: "name", Label: "Name", Type: "text", Required: true},
-		{Name: "email", Label: "E-Mail", Type: "email", Required: true},
-		{Name: "subject", Label: "Betreff", Type: "text", Required: true},
-		{Name: "message", Label: "Nachricht", Type: "textarea", Required: true},
-	}
+	return contactTranslations["de"].fields
 }
 
 // DefaultContactTexts returns default UI strings for the given language.
+// Languages are looked up from contactTranslations; falls back to "de" if not found.
 func DefaultContactTexts(lang string) ContactFormTexts {
-	if lang == "en" {
-		return ContactFormTexts{
-			Heading:       "Contact",
-			SubmitText:    "Send message",
-			SuccessMsg:    "Thank you! Your message has been sent.",
-			SuccessRefMsg: "Your reference number:",
-			ErrorMsg:      "An error occurred. Please try again.",
-			Fields:        DefaultFields(lang),
-		}
+	t, ok := contactTranslations[lang]
+	if !ok {
+		t = contactTranslations["de"]
 	}
 	return ContactFormTexts{
-		Heading:       "Kontakt",
-		SubmitText:    "Nachricht senden",
-		SuccessMsg:    "Vielen Dank! Ihre Nachricht wurde gesendet.",
-		SuccessRefMsg: "Ihre Referenznummer:",
-		ErrorMsg:      "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.",
-		Fields:        DefaultFields(lang),
+		Heading:       t.heading,
+		SubmitText:    t.submitText,
+		SuccessMsg:    t.successMsg,
+		SuccessRefMsg: t.successRefMsg,
+		ErrorMsg:      t.errorMsg,
+		Fields:        t.fields,
 	}
 }
 
@@ -101,7 +90,7 @@ func ContactForm(texts ContactFormTexts) templ.Component {
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.ResolveAttributeValue(texts.Heading)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 69, Col: 65}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 58, Col: 65}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var2)
 		if templ_7745c5c3_Err != nil {
@@ -119,7 +108,7 @@ func ContactForm(texts ContactFormTexts) templ.Component {
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(texts.Heading)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 72, Col: 52}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 61, Col: 52}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -137,7 +126,7 @@ func ContactForm(texts ContactFormTexts) templ.Component {
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(texts.SuccessMsg)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 76, Col: 25}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 65, Col: 25}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 		if templ_7745c5c3_Err != nil {
@@ -150,7 +139,7 @@ func ContactForm(texts ContactFormTexts) templ.Component {
 		var templ_7745c5c3_Var5 string
 		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(texts.SuccessRefMsg)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 78, Col: 34}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 67, Col: 34}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 		if templ_7745c5c3_Err != nil {
@@ -163,7 +152,7 @@ func ContactForm(texts ContactFormTexts) templ.Component {
 		var templ_7745c5c3_Var6 string
 		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(texts.ErrorMsg)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 84, Col: 23}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 73, Col: 23}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 		if templ_7745c5c3_Err != nil {
@@ -181,7 +170,7 @@ func ContactForm(texts ContactFormTexts) templ.Component {
 			var templ_7745c5c3_Var7 string
 			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.ResolveAttributeValue("contact-" + f.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 97, Col: 38}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 86, Col: 38}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var7)
 			if templ_7745c5c3_Err != nil {
@@ -194,7 +183,7 @@ func ContactForm(texts ContactFormTexts) templ.Component {
 			var templ_7745c5c3_Var8 string
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(f.Label)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 98, Col: 16}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 87, Col: 16}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {
@@ -222,7 +211,7 @@ func ContactForm(texts ContactFormTexts) templ.Component {
 				var templ_7745c5c3_Var9 string
 				templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.ResolveAttributeValue("contact-" + f.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 105, Col: 32}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 94, Col: 32}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var9)
 				if templ_7745c5c3_Err != nil {
@@ -235,7 +224,7 @@ func ContactForm(texts ContactFormTexts) templ.Component {
 				var templ_7745c5c3_Var10 string
 				templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 106, Col: 21}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 95, Col: 21}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var10)
 				if templ_7745c5c3_Err != nil {
@@ -253,7 +242,7 @@ func ContactForm(texts ContactFormTexts) templ.Component {
 					var templ_7745c5c3_Var11 string
 					templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.Placeholder)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 109, Col: 60}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 98, Col: 60}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var11)
 					if templ_7745c5c3_Err != nil {
@@ -282,7 +271,7 @@ func ContactForm(texts ContactFormTexts) templ.Component {
 				var templ_7745c5c3_Var12 string
 				templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.ResolveAttributeValue("contact-" + f.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 114, Col: 32}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 103, Col: 32}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var12)
 				if templ_7745c5c3_Err != nil {
@@ -295,7 +284,7 @@ func ContactForm(texts ContactFormTexts) templ.Component {
 				var templ_7745c5c3_Var13 string
 				templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 115, Col: 21}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 104, Col: 21}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var13)
 				if templ_7745c5c3_Err != nil {
@@ -323,7 +312,7 @@ func ContactForm(texts ContactFormTexts) templ.Component {
 					var templ_7745c5c3_Var14 string
 					templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(f.Placeholder)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 120, Col: 59}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 109, Col: 59}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 					if templ_7745c5c3_Err != nil {
@@ -342,7 +331,7 @@ func ContactForm(texts ContactFormTexts) templ.Component {
 					var templ_7745c5c3_Var15 string
 					templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.ResolveAttributeValue(opt)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 123, Col: 28}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 112, Col: 28}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var15)
 					if templ_7745c5c3_Err != nil {
@@ -355,7 +344,7 @@ func ContactForm(texts ContactFormTexts) templ.Component {
 					var templ_7745c5c3_Var16 string
 					templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(opt)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 123, Col: 36}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 112, Col: 36}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 					if templ_7745c5c3_Err != nil {
@@ -378,7 +367,7 @@ func ContactForm(texts ContactFormTexts) templ.Component {
 				var templ_7745c5c3_Var17 string
 				templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.ResolveAttributeValue(fieldInputType(f.Type))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 128, Col: 37}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 117, Col: 37}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var17)
 				if templ_7745c5c3_Err != nil {
@@ -391,7 +380,7 @@ func ContactForm(texts ContactFormTexts) templ.Component {
 				var templ_7745c5c3_Var18 string
 				templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.ResolveAttributeValue("contact-" + f.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 129, Col: 32}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 118, Col: 32}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var18)
 				if templ_7745c5c3_Err != nil {
@@ -404,7 +393,7 @@ func ContactForm(texts ContactFormTexts) templ.Component {
 				var templ_7745c5c3_Var19 string
 				templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 130, Col: 21}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 119, Col: 21}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var19)
 				if templ_7745c5c3_Err != nil {
@@ -422,7 +411,7 @@ func ContactForm(texts ContactFormTexts) templ.Component {
 					var templ_7745c5c3_Var20 string
 					templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.Placeholder)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 132, Col: 60}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 121, Col: 60}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var20)
 					if templ_7745c5c3_Err != nil {
@@ -465,10 +454,16 @@ func ContactForm(texts ContactFormTexts) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
+		if texts.SubmitIcon != "" {
+			templ_7745c5c3_Err = templ.Raw(texts.SubmitIcon).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
 		var templ_7745c5c3_Var21 string
 		templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(texts.SubmitText)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 143, Col: 24}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/app/templates/contact.templ`, Line: 135, Col: 24}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 		if templ_7745c5c3_Err != nil {

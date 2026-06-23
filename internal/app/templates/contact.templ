@@ -16,6 +16,9 @@ func fieldInputType(t string) string {
 type ContactFormTexts struct {
 	Heading       string
 	SubmitText    string
+	// SubmitIcon is an optional raw HTML snippet (e.g. inline SVG) rendered
+	// inside the submit button before the label. Empty means no icon.
+	SubmitIcon    string
 	SuccessMsg    string
 	SuccessRefMsg string
 	ErrorMsg      string
@@ -25,42 +28,28 @@ type ContactFormTexts struct {
 }
 
 // DefaultFields returns the built-in 4-field form for the given language.
+// Languages are looked up from contactTranslations; falls back to "de" if not found.
 func DefaultFields(lang string) []config.FieldConfig {
-	if lang == "en" {
-		return []config.FieldConfig{
-			{Name: "name", Label: "Name", Type: "text", Required: true},
-			{Name: "email", Label: "Email", Type: "email", Required: true},
-			{Name: "subject", Label: "Subject", Type: "text", Required: true},
-			{Name: "message", Label: "Message", Type: "textarea", Required: true},
-		}
+	if t, ok := contactTranslations[lang]; ok {
+		return t.fields
 	}
-	return []config.FieldConfig{
-		{Name: "name", Label: "Name", Type: "text", Required: true},
-		{Name: "email", Label: "E-Mail", Type: "email", Required: true},
-		{Name: "subject", Label: "Betreff", Type: "text", Required: true},
-		{Name: "message", Label: "Nachricht", Type: "textarea", Required: true},
-	}
+	return contactTranslations["de"].fields
 }
 
 // DefaultContactTexts returns default UI strings for the given language.
+// Languages are looked up from contactTranslations; falls back to "de" if not found.
 func DefaultContactTexts(lang string) ContactFormTexts {
-	if lang == "en" {
-		return ContactFormTexts{
-			Heading:       "Contact",
-			SubmitText:    "Send message",
-			SuccessMsg:    "Thank you! Your message has been sent.",
-			SuccessRefMsg: "Your reference number:",
-			ErrorMsg:      "An error occurred. Please try again.",
-			Fields:        DefaultFields(lang),
-		}
+	t, ok := contactTranslations[lang]
+	if !ok {
+		t = contactTranslations["de"]
 	}
 	return ContactFormTexts{
-		Heading:       "Kontakt",
-		SubmitText:    "Nachricht senden",
-		SuccessMsg:    "Vielen Dank! Ihre Nachricht wurde gesendet.",
-		SuccessRefMsg: "Ihre Referenznummer:",
-		ErrorMsg:      "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.",
-		Fields:        DefaultFields(lang),
+		Heading:       t.heading,
+		SubmitText:    t.submitText,
+		SuccessMsg:    t.successMsg,
+		SuccessRefMsg: t.successRefMsg,
+		ErrorMsg:      t.errorMsg,
+		Fields:        t.fields,
 	}
 }
 
@@ -140,6 +129,9 @@ templ ContactForm(texts ContactFormTexts) {
 
 				<div class="form-actions">
 					<button type="submit" class="form-submit" id="contact-submit">
+						if texts.SubmitIcon != "" {
+							@templ.Raw(texts.SubmitIcon)
+						}
 						{ texts.SubmitText }
 					</button>
 				</div>
