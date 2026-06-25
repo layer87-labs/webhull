@@ -146,29 +146,31 @@ jobs:
         env:
           VERSION: ${{ needs.create-release.outputs.version }}
         run: |
-          cp "dist-amd64/webhull_${VERSION}_linux-amd64" dist-amd64/webhull
-          chmod +x dist-amd64/webhull
+          mkdir -p build/bin
+          cp "dist-amd64/webhull_${VERSION}_linux-amd64" build/bin/webhull
+          chmod +x build/bin/webhull
           docker buildx build \
             --platform linux/amd64 \
             -f deploy/Containerfile \
             -t "ghcr.io/layer87-labs/webhull:${VERSION}-amd64" \
             -t "ghcr.io/layer87-labs/webhull:latest-amd64" \
             --push \
-            dist-amd64/
+            .
 
       - name: Build and push arm64 image
         env:
           VERSION: ${{ needs.create-release.outputs.version }}
         run: |
-          cp "dist-arm64/webhull_${VERSION}_linux-arm64" dist-arm64/webhull
-          chmod +x dist-arm64/webhull
+          mkdir -p build/bin
+          cp "dist-arm64/webhull_${VERSION}_linux-arm64" build/bin/webhull
+          chmod +x build/bin/webhull
           docker buildx build \
             --platform linux/arm64 \
             -f deploy/Containerfile \
             -t "ghcr.io/layer87-labs/webhull:${VERSION}-arm64" \
             -t "ghcr.io/layer87-labs/webhull:latest-arm64" \
             --push \
-            dist-arm64/
+            .
 
       - name: Create and push multi-arch manifest
         env:
