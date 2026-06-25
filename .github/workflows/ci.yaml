@@ -42,10 +42,9 @@ jobs:
         run: make ci/build
 
       - name: Upload binary
-        if: matrix.goarch == 'amd64'
         uses: actions/upload-artifact@v7
         with:
-          name: webhull-linux-amd64
+          name: webhull-linux-${{ matrix.goarch }}
           path: build/bin/webhull
           retention-days: 1
 
@@ -57,26 +56,44 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Download binary
+      - name: Download amd64 binary
         uses: actions/download-artifact@v4
         with:
           name: webhull-linux-amd64
-          path: build/bin/
+          path: dist-amd64/
 
-      - name: Fix binary permissions
-        run: chmod +x build/bin/webhull
+      - name: Download arm64 binary
+        uses: actions/download-artifact@v4
+        with:
+          name: webhull-linux-arm64
+          path: dist-arm64/
+
+      - name: Prepare amd64 binary
+        run: mkdir -p build/bin && cp dist-amd64/webhull build/bin/webhull && chmod +x build/bin/webhull
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build container image
+      - name: Build amd64 container image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: deploy/Containerfile
           platforms: linux/amd64
           push: false
-          tags: webhull:pr-${{ github.event.pull_request.number }}
+          tags: webhull:pr-${{ github.event.pull_request.number }}-amd64
+
+      - name: Prepare arm64 binary
+        run: cp dist-arm64/webhull build/bin/webhull
+
+      - name: Build arm64 container image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/Containerfile
+          platforms: linux/arm64
+          push: false
+          tags: webhull:pr-${{ github.event.pull_request.number }}-arm64
 
   # ── Quality gate – fmt, vet, lint, shadow, test, audit ──────────────────────
   check:
