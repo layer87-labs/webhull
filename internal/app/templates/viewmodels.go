@@ -156,6 +156,9 @@ func (pd *PageData) ResolveContactTexts() ContactFormTexts {
 	if cfg.SubmitText != "" {
 		defaults.SubmitText = cfg.SubmitText
 	}
+	if cfg.SubmitIcon != "" {
+		defaults.SubmitIcon = cfg.SubmitIcon
+	}
 	if cfg.SuccessMsg != "" {
 		defaults.SuccessMsg = cfg.SuccessMsg
 	}

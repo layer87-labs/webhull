@@ -37,9 +37,15 @@ templ ContactPage(data *templates.PageData) {
 		<main class="content-page">
 			<div class="container">
 				if data.HasContent("body") {
-					@templ.Raw(data.Content("body"))
+					<div class="contact-layout">
+						<div class="contact-intro">
+							@templ.Raw(data.Content("body"))
+						</div>
+						@templates.ContactForm(data.ResolveContactTexts())
+					</div>
+				} else {
+					@templates.ContactForm(data.ResolveContactTexts())
 				}
-				@templates.ContactForm(data.ResolveContactTexts())
 			</div>
 		</main>
 	}
