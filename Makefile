@@ -97,7 +97,8 @@ build: generate
 
 ## ci/build: cross-compile check used in CI (no templ generate — committed)
 ci/build:
-	@CGO_ENABLED=0 go build ./cmd/webhull
+	@mkdir -p $(BUILD_DIR)
+	@CGO_ENABLED=0 go build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/webhull
 
 ## build/single: build a versioned binary for release (CI use)
 ## Usage: make build/single SUFFIX=linux-amd64 VERSION=1.2.3
