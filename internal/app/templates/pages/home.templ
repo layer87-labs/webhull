@@ -31,6 +31,15 @@ templ HomePage(data *templates.PageData) {
 					if data.HasContent("heroDescription") {
 						<p class="hero-description">{ data.Content("heroDescription") }</p>
 					}
+					if data.HasContent("heroNote") {
+						if data.HasContent("heroNoteLink") {
+							<a href={ templ.SafeURL(data.Content("heroNoteLink")) } class="hero-note">
+								{ data.Content("heroNote") }
+							</a>
+						} else {
+							<p class="hero-note">{ data.Content("heroNote") }</p>
+						}
+					}
 					<div class="hero-cta">
 						if data.HasContent("heroCTA1Text") {
 							<a href={ templ.SafeURL(data.Content("heroCTA1Link")) } class="btn btn-gradient">
