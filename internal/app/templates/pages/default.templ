@@ -4,6 +4,16 @@ import "github.com/layer87-labs/webhull/internal/app/templates"
 
 // DefaultPage renders a generic content page with hero and body content.
 // Supports both heroTitle (single-line) and heroLine1/heroLine2 (two-line) variants.
+//
+// Body sections can be authored in two ways:
+//
+// 1. Typed ordered sections (recommended):
+//    Use <!-- section[type,altbg,id=anchor]: Title HTML --> markers in the content
+//    file body. Sections are rendered in declaration order, giving full layout control.
+//    Supported types: "block" (text), "grid" (content cards), "services" (service cards).
+//
+// 2. Plain body (backward-compatible):
+//    The entire HTML body is rendered as-is inside a single container.
 templ DefaultPage(data *templates.PageData) {
 	@templates.Layout(data) {
 		// Hero with breadcrumb
@@ -31,13 +41,34 @@ templ DefaultPage(data *templates.PageData) {
 			</section>
 		}
 
-		// Main content
-		<main class="content-page">
-			<div class="container">
-				if data.HasContent("body") {
-					@templ.Raw(data.Content("body"))
-				}
-			</div>
-		</main>
+		// Body sections: flexible ordered rendering when typed section markers are used,
+		// otherwise fall back to a plain body block.
+		if len(data.Page.Sections) > 0 {
+			for _, s := range data.Page.Sections {
+				<section class={ sectionClass(s.Type, s.AltBg) } { sectionIDAttr(s.ID)... }>
+					<div class="container">
+						if s.Title != "" {
+							<div class="section-header">
+								<h2 class="section-title">
+									@templ.Raw(s.Title)
+								</h2>
+							</div>
+						}
+						<div class={ sectionInnerClass(s.Type) }>
+							@templ.Raw(s.Body)
+						</div>
+					</div>
+				</section>
+			}
+		} else {
+			// Plain body fallback.
+			<main class="content-page">
+				<div class="container">
+					if data.HasContent("body") {
+						@templ.Raw(data.Content("body"))
+					}
+				</div>
+			</main>
+		}
 	}
 }
