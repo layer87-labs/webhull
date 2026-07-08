@@ -69,6 +69,6 @@ func (s *Service) RootRedirect(startSlugs map[Language]string) gin.HandlerFunc {
 
 		// Set cookie before redirect
 		c.SetCookie(CookieName, lang.String(), 30*24*3600, "/", "", true, false)
-		c.Redirect(http.StatusFound, "/"+slug)
+		c.Redirect(http.StatusMovedPermanently, "/"+slug)
 	}
 }
