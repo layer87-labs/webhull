@@ -104,6 +104,24 @@ type ConsentBannerData struct {
 	Enabled    bool
 	Texts      config.ConsentI18nConfig
 	Categories []consent.Category
+
+	// State is the visitor's current consent state. It is used to pre-check the
+	// category toggles when the banner is reopened to change an earlier
+	// decision. Nil is treated as "nothing decided yet".
+	State *consent.State
+}
+
+// IsChecked reports whether the toggle for the given category should render
+// checked. Required categories are always on; once the visitor has decided,
+// their stored choice wins over the configured default.
+func (cb *ConsentBannerData) IsChecked(cat consent.Category) bool {
+	if cat.Required {
+		return true
+	}
+	if cb.State != nil && cb.State.Decided {
+		return cb.State.Categories[cat.Key]
+	}
+	return cat.Default
 }
 
 // Language returns the current page language.
@@ -190,4 +208,56 @@ func (pd *PageData) ShowConsentBanner() bool {
 // suppress consent.js inclusion for automated audit tools.
 func (pd *PageData) ConsentBypassed() bool {
 	return pd.Consent != nil && pd.Consent.Bypassed
+}
+
+// RenderConsentBanner returns true if the consent banner markup should be
+// emitted at all.
+//
+// This is deliberately broader than ShowConsentBanner: the markup is also
+// emitted once the visitor has decided, so the decision can be reopened and
+// withdrawn at any time (GDPR Art. 7(3), TTDSG §25). In that case the banner
+// starts hidden and is revealed by any [data-consent-open] trigger.
+func (pd *PageData) RenderConsentBanner() bool {
+	return pd.ConsentConfig != nil &&
+		pd.ConsentConfig.Enabled &&
+		pd.Consent != nil &&
+		!pd.Consent.Bypassed
+}
+
+// ConsentDecided returns true when the visitor has already made a choice, in
+// which case the banner renders hidden rather than open.
+func (pd *PageData) ConsentDecided() bool {
+	return pd.Consent != nil && pd.Consent.Decided
+}
+
+// ClientAnalyticsAllowed reports whether client-side analytics scripts may be
+// injected into the page.
+//
+// Injecting them is itself an act of tracking: the Plausible script sends a
+// pageview the moment it loads. It therefore requires an explicit accepted
+// analytics consent, not merely a configured provider. Without consent the
+// server falls back to anonymous server-side pageview tracking — see
+// analytics.Service.TrackServerSide.
+func (pd *PageData) ClientAnalyticsAllowed() bool {
+	// Consent management switched off site-wide: there is nothing to gate on,
+	// and the operator has made that call deliberately.
+	if pd.ConsentConfig == nil || !pd.ConsentConfig.Enabled {
+		return true
+	}
+	return pd.Consent != nil && pd.Consent.IsAllowed(consent.CategoryAnalytics)
+}
+
+// ConsentSettingsLabel returns the label for the footer link that reopens the
+// consent dialog, or an empty string when no link should be rendered.
+//
+// It falls back to the consent banner title so that a site which enables
+// consent always gets a working withdrawal path, even without extra config.
+func (pd *PageData) ConsentSettingsLabel() string {
+	if !pd.RenderConsentBanner() {
+		return ""
+	}
+	if pd.UI.ConsentSettingsLabel != "" {
+		return pd.UI.ConsentSettingsLabel
+	}
+	return pd.ConsentConfig.Texts.Title
 }

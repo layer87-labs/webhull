@@ -127,10 +127,15 @@ type UIStringsConfig struct {
 	// Example: "Designed & hosted by Layer87"
 	CreditsText string `yaml:"creditsText,omitempty"`
 	// CreditsURL is an optional URL that wraps CreditsText in a link.
-	CreditsURL       string `yaml:"creditsURL,omitempty"`
-	NotFoundTitle    string `yaml:"notFoundTitle"`
-	NotFoundSubtitle string `yaml:"notFoundSubtitle"`
-	NotFoundButton   string `yaml:"notFoundButton"`
+	CreditsURL string `yaml:"creditsURL,omitempty"`
+	// ConsentSettingsLabel overrides the label of the footer link that reopens
+	// the cookie consent dialog. When empty, the consent banner title is used.
+	// The link is rendered whenever consent is enabled, so that an earlier
+	// decision can always be withdrawn (GDPR Art. 7(3)).
+	ConsentSettingsLabel string `yaml:"consentSettingsLabel,omitempty"`
+	NotFoundTitle        string `yaml:"notFoundTitle"`
+	NotFoundSubtitle     string `yaml:"notFoundSubtitle"`
+	NotFoundButton       string `yaml:"notFoundButton"`
 	// ContactForm holds optional per-language overrides for contact form labels and messages.
 	// Any field left empty falls back to the built-in DE/EN defaults.
 	ContactForm ContactFormConfig `yaml:"contactForm,omitempty"`

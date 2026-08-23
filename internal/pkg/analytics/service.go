@@ -26,7 +26,7 @@ func NewService(logger *zap.Logger, providers ...Provider) *Service {
 // Track dispatches an event to all providers if analytics consent is given.
 func (s *Service) Track(ctx context.Context, consentState *consent.State, event Event, ip, userAgent, acceptLang string) {
 	// Check analytics consent
-	if consentState != nil && !consentState.IsAllowed("analytics") {
+	if consentState != nil && !consentState.IsAllowed(consent.CategoryAnalytics) {
 		return
 	}
 
@@ -45,7 +45,7 @@ func (s *Service) Track(ctx context.Context, consentState *consent.State, event 
 // When consent IS given, the client-side JS handles tracking (deduplication).
 func (s *Service) TrackServerSide(consentState *consent.State, pageURL, ip, userAgent, acceptLang string) {
 	// Skip if analytics consent is given — client JS will track instead
-	if consentState != nil && consentState.IsAllowed("analytics") {
+	if consentState != nil && consentState.IsAllowed(consent.CategoryAnalytics) {
 		return
 	}
 

@@ -1,5 +1,13 @@
 package consent
 
+// CategoryAnalytics is the well-known consent category key that gates every
+// analytics facility: the client-side tracking scripts injected into the page
+// and the server-side event dispatch in pkg/analytics.
+//
+// Sites may define additional categories freely, but this key is reserved:
+// webhull only injects analytics scripts when it is present and accepted.
+const CategoryAnalytics = "analytics"
+
 // State represents the user's consent choices.
 type State struct {
 	// Decided is true if the user has made a choice (accepted/rejected).
