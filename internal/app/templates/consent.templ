@@ -2,26 +2,40 @@ package templates
 
 import "github.com/layer87-labs/webhull/internal/pkg/consent"
 
-// ConsentBanner renders the GDPR cookie consent overlay.
-templ ConsentBanner(config *ConsentBannerData, langCode string) {
+// ConsentBanner renders the GDPR cookie consent dialog.
+//
+// The markup is emitted on every page, including after the visitor has
+// decided. When decided is true the dialog starts hidden and is revealed by
+// any [data-consent-open] trigger, so an earlier decision can always be
+// reviewed and withdrawn (GDPR Art. 7(3), TTDSG §25).
+//
+// Focus management, the focus trap and Escape handling live in consent.js.
+// The markup only provides the hooks: a focusable dialog container and an
+// accessible name and description resolved from the dialog's own headings.
+templ ConsentBanner(config *ConsentBannerData, langCode string, decided bool) {
 	<div
 		id="consent-banner"
 		class="consent-banner"
 		role="dialog"
 		aria-modal="true"
-		aria-label={ config.Texts.Title }
+		aria-labelledby="consent-title"
+		aria-describedby="consent-description"
 		data-lang={ langCode }
+		if decided {
+			hidden
+			data-consent-decided="true"
+		}
 	>
 		<div class="consent-overlay"></div>
-		<div class="consent-dialog">
+		<div class="consent-dialog" tabindex="-1">
 			<div class="consent-content">
-				<h2 class="consent-title">{ config.Texts.Title }</h2>
-				<p class="consent-description">{ config.Texts.Description }</p>
+				<h2 id="consent-title" class="consent-title">{ config.Texts.Title }</h2>
+				<p id="consent-description" class="consent-description">{ config.Texts.Description }</p>
 
 				// Category toggles (hidden by default, shown on "Customize")
 				<div id="consent-categories" class="consent-categories" hidden>
 					for _, cat := range config.Categories {
-						@consentCategory(cat)
+						@consentCategory(cat, config.IsChecked(cat))
 					}
 				</div>
 			</div>
@@ -67,14 +81,18 @@ templ ConsentBanner(config *ConsentBannerData, langCode string) {
 }
 
 // consentCategory renders a single category toggle.
-templ consentCategory(cat consent.Category) {
+//
+// checked reflects the visitor's stored decision when there is one and the
+// configured default otherwise, so reopening the dialog shows what is actually
+// in effect rather than the initial defaults.
+templ consentCategory(cat consent.Category, checked bool) {
 	<div class="consent-category">
 		<label class="consent-category-label">
 			<input
 				type="checkbox"
 				name={ "consent-" + cat.Key }
 				data-category={ cat.Key }
-				if cat.Required || cat.Default {
+				if checked {
 					checked
 				}
 				if cat.Required {
@@ -83,7 +101,7 @@ templ consentCategory(cat consent.Category) {
 			/>
 			<span class="consent-category-name">{ cat.Name }</span>
 			if cat.Required {
-				<span class="consent-category-required">*</span>
+				<span class="consent-category-required" aria-hidden="true">*</span>
 			}
 		</label>
 	</div>

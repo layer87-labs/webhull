@@ -28,6 +28,11 @@ func CacheMiddleware(cacheMaxAge, staticCacheMaxAge time.Duration) gin.HandlerFu
 			// HTML pages: always revalidate with the server.
 			// Handlers set ETag for conditional 304 responses.
 			c.Header("Cache-Control", "no-cache")
+			// The rendered HTML depends on the language and consent cookies —
+			// the consent decision controls whether analytics scripts are
+			// emitted at all. Add rather than set: the gzip middleware has
+			// already declared Vary: Accept-Encoding.
+			c.Writer.Header().Add("Vary", "Cookie")
 		}
 
 		c.Next()

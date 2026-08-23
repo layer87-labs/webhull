@@ -43,7 +43,11 @@ The script tag injected in the page `<head>`:
 
 ### Consent gating
 
-When the consent system is enabled, the Plausible script is only injected after the visitor accepts the `analytics` cookie category. No script is sent before consent.
+When the consent system is enabled, the Plausible script tag is only rendered after the visitor accepts the `analytics` cookie category. No script is sent before consent.
+
+The gate is applied **server-side**, in the layout template, not inside the script. The Plausible script sends a pageview the moment it loads, so it must not reach the page at all before a decision. Because the rendered HTML therefore depends on the consent cookie, HTML responses carry `Vary: Cookie` and their `ETag` differs per decision.
+
+A consequence: changing the analytics decision requires a page reload to take effect, since the tag is added or removed server-side. `consent.js` triggers that reload automatically whenever a decision flips the analytics category.
 
 ## Custom collector
 
@@ -62,11 +66,15 @@ Like Plausible, the collector script is also consent-gated.
 
 ## Server-side tracking
 
-webhull performs server-side pageview tracking as a fallback when client-side JavaScript is inactive (bots, CLI tools, JS-disabled browsers). These server-side events are forwarded to the same configured providers without any client involvement.
+Whenever client-side tracking is *not* active — no decision yet, `analytics` rejected, JavaScript disabled, or a CLI client — webhull sends an anonymous pageview server-side to the same configured providers. No cookie is set and no personal data is stored, so this needs no consent.
+
+The two paths are mutually exclusive: as soon as `analytics` consent is given, server-side tracking stops and the client script takes over, so pageviews are never counted twice.
 
 ## Consent integration
 
-The analytics scripts (`/static/js/analytics.js`) check the consent cookie before sending any events. If the visitor has not decided or has rejected the `analytics` category, no events are sent.
+Analytics is gated twice, on purpose. The server does not render either script tag without accepted `analytics` consent, and `/static/js/analytics.js` re-checks the consent cookie before sending any event — so a stale page that was cached with the script in it still stops tracking once consent is withdrawn.
+
+The category key `analytics` is reserved for this: `consent.CategoryAnalytics`. Sites may define any number of additional categories, but this is the one that gates analytics.
 
 See the [Configuration reference](../reference/configuration.md#analytics) for the full `analytics` config block and the [Configuration reference](../reference/configuration.md#consent) for consent category setup.
 

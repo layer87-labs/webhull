@@ -53,6 +53,15 @@ templ Footer(data *PageData) {
 							{ data.UI.PrivacyLabel }
 						</a>
 					}
+					// Reopening the consent dialog must stay reachable from every page:
+					// consent that cannot be withdrawn as easily as it was given is
+					// not valid consent (GDPR Art. 7(3)).
+					if data.ConsentSettingsLabel() != "" {
+						{ " · " }
+						<button type="button" class="footer-consent-link" data-consent-open>
+							{ data.ConsentSettingsLabel() }
+						</button>
+					}
 					if data.UI.CreditsText != "" {
 						{ " · " }
 						if data.UI.CreditsURL != "" {

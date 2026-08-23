@@ -161,6 +161,7 @@ func (s *Server) buildPageData(page *pages.Page, consentState *consent.State) *t
 			Enabled:    true,
 			Texts:      s.Consent.Texts(page.Language),
 			Categories: s.Consent.Categories(page.Language),
+			State:      consentState,
 		}
 	}
 

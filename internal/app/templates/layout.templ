@@ -54,7 +54,10 @@ templ Layout(data *PageData) {
 		<link rel="stylesheet" href={ data.AssetPath("/static/css/webhull.css") }/>
 		<link rel="stylesheet" href={ data.AssetPath("/static/css/style.css") }/>
 		<script src={ data.AssetPath("/static/js/theme-init.js") }></script>
-		if data.Analytics.PlausibleEnabled {
+		// Client-side analytics is injected only with accepted analytics consent.
+		// The Plausible script sends a pageview as soon as it loads, so emitting
+		// it before a decision would track the visitor regardless of their choice.
+		if data.Analytics.PlausibleEnabled && data.ClientAnalyticsAllowed() {
 			<script defer data-domain={ data.Analytics.PlausibleDomain } data-api="/api/event" src="/js/script.js"></script>
 		}
 	</head>
@@ -62,14 +65,16 @@ templ Layout(data *PageData) {
 		@Header(data)
 		{ children... }
 		@Footer(data)
-		if data.ShowConsentBanner() {
-			@ConsentBanner(data.ConsentConfig, data.LangCode())
+		// The banner markup is also emitted after a decision — hidden — so the
+		// decision stays withdrawable from any page.
+		if data.RenderConsentBanner() {
+			@ConsentBanner(data.ConsentConfig, data.LangCode(), data.ConsentDecided())
 		}
 		<script defer src={ data.AssetPath("/static/js/menu.js") }></script>
 		if data.Page != nil && (data.Page.Template == "contact" || data.Page.Template == "single") {
 			<script defer src={ data.AssetPath("/static/js/contact.js") }></script>
 		}
-		if data.Analytics.CollectorEnabled {
+		if data.Analytics.CollectorEnabled && data.ClientAnalyticsAllowed() {
 			<script defer src={ data.AssetPath("/static/js/analytics.js") }></script>
 		}
 		// consent.js is suppressed for automated audit tools (bypass mode).

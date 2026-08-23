@@ -300,6 +300,18 @@ func (s *Server) initAnalytics() {
 	}
 
 	s.Analytics = analytics.NewService(s.logger, providers...)
+
+	// Client-side analytics is gated on the "analytics" consent category. If
+	// consent is on but that category does not exist, visitors have no way to
+	// grant it and the scripts would never load — a silent misconfiguration.
+	if len(providers) > 0 && s.cfg.Consent.Enabled {
+		if _, ok := s.cfg.Consent.Categories[consent.CategoryAnalytics]; !ok {
+			s.logger.Warn("analytics is configured but consent has no \"analytics\" category — "+
+				"client-side tracking can never be granted; add the category to consent.categories "+
+				"or disable consent",
+				zap.Int("providers", len(providers)))
+		}
+	}
 }
 
 // setupMiddleware configures the middleware stack.

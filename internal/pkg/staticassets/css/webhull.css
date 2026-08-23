@@ -106,6 +106,26 @@
   pointer-events: none;
 }
 
+/* Visibility is driven by the hidden attribute alone (see the global
+   [hidden] rule above), so the dialog can be reopened without inline styles. */
+
+/* Lock background scrolling while the dialog is open. */
+body.consent-open {
+  overflow: hidden;
+}
+
+/* Footer trigger that reopens the consent dialog. Rendered as a button for
+   semantics, styled to sit inline with the neighbouring footer links. */
+.footer-consent-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .consent-overlay {
   position: fixed;
   inset: 0;
