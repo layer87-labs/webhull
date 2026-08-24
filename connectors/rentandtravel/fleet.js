@@ -18,7 +18,7 @@
   var labels = document.getElementById("fleet-dialog-labels");
   var title = document.getElementById("fleet-dialog-title");
   var group = document.getElementById("fleet-dialog-group");
-  var specs = document.getElementById("fleet-dialog-specs");
+  var stats = document.getElementById("fleet-dialog-stats");
   var features = document.getElementById("fleet-dialog-features");
   var intro = document.getElementById("fleet-dialog-intro");
   var techHead = document.getElementById("fleet-dialog-tech-head");
@@ -192,17 +192,46 @@
     title.textContent = vehicle.make + " " + vehicle.model;
     group.textContent = vehicle.group || "";
 
-    clear(specs);
+    // Icon + value + label, deliberately not icon-only: an icon alone has
+    // no accessible name for a screen reader, and has to be decoded before
+    // it means anything. Value stays the visually dominant element so the
+    // strip is still scannable at a glance.
+    clear(stats);
     [
-      vehicle.seats != null ? vehicle.seats + " Sitzplätze" : null,
-      vehicle.beds != null ? vehicle.beds + " Schlafplätze" : null,
-      vehicle.driversLicence ? "Führerschein " + vehicle.driversLicence : null,
-      vehicle.maxWeight != null ? vehicle.maxWeight + " kg zGG" : null
-    ].forEach(function (text) {
-      if (!text) return;
+      ["f-seats", vehicle.seats, "Sitzplätze"],
+      ["f-beds", vehicle.beds, "Schlafplätze"],
+      ["f-licence", vehicle.driversLicence, "Führerschein"],
+      ["f-year", vehicle.modelYear, "Baujahr"],
+      ["f-pets", vehicle.petsAllowed == null ? null : (vehicle.petsAllowed ? "Ja" : "Nein"), "Haustiere"]
+    ].forEach(function (row) {
+      var icon = row[0], value = row[1], label = row[2];
+      if (value == null || value === "") return;
+
       var li = document.createElement("li");
-      li.textContent = text;
-      specs.appendChild(li);
+      li.className = "fleet-stat";
+
+      var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("class", "fleet-stat-icon");
+      svg.setAttribute("aria-hidden", "true");
+      svg.setAttribute("focusable", "false");
+      var use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+      use.setAttribute("href", "#" + icon);
+      svg.appendChild(use);
+
+      var text = document.createElement("span");
+      text.className = "fleet-stat-text";
+      var v = document.createElement("strong");
+      v.className = "fleet-stat-value";
+      v.textContent = String(value);
+      var l = document.createElement("span");
+      l.className = "fleet-stat-label";
+      l.textContent = label;
+      text.appendChild(v);
+      text.appendChild(l);
+
+      li.appendChild(svg);
+      li.appendChild(text);
+      stats.appendChild(li);
     });
 
     clear(features);
