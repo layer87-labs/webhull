@@ -111,7 +111,12 @@ type renderData struct {
 {{end}}
 ```
 
-Small helpers are available: `hasSuffix`, `contains`, `default`.
+Small helpers are available: `hasSuffix`, `contains`, `default`, and `toJSON` — serializes
+a value (typically the current item, `{{toJSON .}}`) to a JSON string, for templates that
+hand item data to client-side JS (e.g. a `data-*` attribute a gallery/detail widget reads).
+It returns a plain string, so `html/template`'s contextual auto-escaping still applies
+wherever it's interpolated — safe to use inside an HTML attribute even when upstream data
+contains quotes or markup.
 
 ## Configuration
 

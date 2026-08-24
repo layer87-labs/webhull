@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"os"
@@ -30,6 +31,19 @@ var funcMap = template.FuncMap{
 			return nil
 		}
 		return items[i]
+	},
+	// toJSON serializes a value (typically an Item) to a JSON string, for
+	// templates that need to hand an item's data to client-side JS — e.g. a
+	// data-* attribute consumed by a gallery/detail widget. Returns a plain
+	// string (not template.JS/template.HTMLAttr), so html/template still
+	// HTML-escapes it correctly wherever it's interpolated — quotes and
+	// markup inside upstream data can never break out of that context.
+	"toJSON": func(v interface{}) (string, error) {
+		b, err := json.Marshal(v)
+		if err != nil {
+			return "", err
+		}
+		return string(b), nil
 	},
 }
 
