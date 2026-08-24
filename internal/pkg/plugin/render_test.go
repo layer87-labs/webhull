@@ -9,7 +9,8 @@ import (
 
 func TestRenderHTML_ToJSON_EscapesForAttributeContext(t *testing.T) {
 	tmpl, err := template.New("t").Funcs(funcMap).Parse(
-		`{{range .Items}}<button data-vehicle='{{toJSON .}}'></button>{{end}}`)
+		`{{range .Items}}<button data-vehicle='{{toJSON .}}'></button>{{end}}`,
+	)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -47,7 +48,8 @@ func TestRenderHTML_ToJSON_RoundTripsInAttribute(t *testing.T) {
 	// round trip via html.UnescapeString instead of expecting raw JSON in
 	// the rendered byte stream.
 	tmpl, err := template.New("t").Funcs(funcMap).Parse(
-		`{{range .Items}}<button data-vehicle='{{toJSON .}}'></button>{{end}}`)
+		`{{range .Items}}<button data-vehicle='{{toJSON .}}'></button>{{end}}`,
+	)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}

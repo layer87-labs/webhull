@@ -123,7 +123,8 @@ func checkForLiteralSecrets(headers, query map[string]string, prefix, path strin
 		if !secretRefPattern.MatchString(val) {
 			return fmt.Errorf(
 				"%s: %s.headers[%q] must be exactly \"${VAR}\" or \"${VAR:default}\" — "+
-					"literal header values are not allowed (would commit a secret)", path, prefix, key)
+					"literal header values are not allowed (would commit a secret)", path, prefix, key,
+			)
 		}
 	}
 	for key, val := range query {
@@ -133,9 +134,10 @@ func checkForLiteralSecrets(headers, query map[string]string, prefix, path strin
 		if !secretRefPattern.MatchString(val) {
 			return fmt.Errorf(
 				"%s: %s.query[%q] looks like it carries a credential and must be exactly "+
-					"\"${VAR}\" or \"${VAR:default}\" — literal values are not allowed (would commit a secret). "+
-					"Rename the parameter if it genuinely isn't one.",
-				path, prefix, key)
+					"\"${VAR}\" or \"${VAR:default}\" — literal values are not allowed (would commit a secret), "+
+					"rename the parameter if it genuinely isn't one",
+				path, prefix, key,
+			)
 		}
 	}
 	return nil
@@ -208,7 +210,8 @@ func validateEnrich(e *Enrich, path string) error {
 	if !found {
 		return fmt.Errorf(
 			"%s: enrich.source.url or a query value must contain the %q placeholder — "+
-				"otherwise every item would fetch the identical URL", path, placeholder)
+				"otherwise every item would fetch the identical URL", path, placeholder,
+		)
 	}
 	// Validate against a substituted URL so a malformed base URL is caught
 	// at load time rather than on the first background refresh.
