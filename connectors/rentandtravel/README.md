@@ -13,9 +13,11 @@ site fully controls — same design system, no layout shift, no third-party requ
 the visitor's browser for the listing itself (only vehicle images load from
 `cdn.be.rentandtravel.de`, declared via `csp.imgSrc`).
 
-The vendor's own booking/payment flow (Stripe checkout) is untouched — this connector
-only replaces the fleet *listing*. Decide separately whether your fleet cards link out to
-rent and travel's booking flow or into your own contact form.
+The vendor's own booking/payment flow (Stripe checkout) is untouched. Each card opens a
+detail dialog — a photo gallery and full specs, built entirely from data already fetched
+with the list (no per-vehicle API call) — whose "Jetzt buchen" button links out to that
+vehicle's real booking page on `wl.be.rentandtravel.de`, built from the item's own `id`
+and `station.id`. No separate detail route on the consuming site.
 
 ## Setup
 
@@ -32,8 +34,11 @@ rent and travel's booking flow or into your own contact form.
 
 4. Adjust `render.into.page` / `render.into.contentKey` in `plugin.yaml` to match your
    page's frontmatter `id:` and the content key your template reads.
-5. Style `.fleet-*` classes in your site's stylesheet — the template ships unstyled,
-   class-only markup.
+5. Style `.fleet-*` and `.fleet-dialog*` classes in your site's stylesheet — the template
+   ships unstyled, class-only markup. The dialog uses the native HTML `<dialog>` element
+   (`showModal()`); on a browser without dialog support the "Details ansehen" button
+   simply does nothing — the card's own summary data is still fully visible, so nothing
+   is lost, just the gallery.
 
 ## Auth
 
@@ -55,8 +60,10 @@ carries a permissive CORS header. If rent and travel changes this in the future,
 ## Known quirks
 
 - The upstream feed serves `.tif` images for some categories (`interieur`, `bath`,
-  `bed`) that no browser renders. `plugin.yaml` deliberately allowlists only
-  `images.outside.medium`, which is consistently `.png`/`.jpg` in practice.
+  `bed`). The card image (`images.outside.medium`) is consistently `.png`/`.jpg`; the
+  detail dialog's gallery uses the full `images.all` array and filters `.tif` entries
+  out client-side (they're already in the page's data, filtering them server-side would
+  only save a few hundred bytes at the cost of a second, non-trivial field-path shape).
 - `pricePerNightFrom` has no currency/decimal formatting from the API — the template
   assumes EUR, whole numbers (`110` → "ab 110 €").
 - Not every vehicle sends every field (`intro1`, `labels` are often empty) — the

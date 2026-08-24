@@ -48,10 +48,18 @@ select:
     - labels               # e.g. ["Empfehlung"]
     - featureHighlights    # [{id, name}, ...] — shown as badges
     - intro1
-    # Image — deliberately images.outside.medium only. The upstream feed
-    # also serves .tif files for interieur/bath/bed categories, which no
-    # browser renders; "outside" is consistently a .png/.jpg in practice.
+    # Card image — deliberately images.outside.medium only.
     - images.outside.medium
+    # Full gallery for the detail view. The list endpoint already returns
+    # every image (outside/layout/layoutNight/interieur/bath/bed) per
+    # vehicle — no extra per-item API call needed. Some categories include
+    # .tif files no browser renders; the template filters those out.
+    - images.all
+    # station.id is echoed back so the template can link "Jetzt buchen"
+    # to the vehicle's real booking page on rent and travel — no separate
+    # detail page needed on our side, and no code, just data already on
+    # each item.
+    - station.id
 
 render:
   template: fleet.tmpl.html

@@ -1,53 +1,207 @@
 <!--
   rent and travel fleet fragment.
 
-  Rendered server-side via html/template (auto-escaping) and injected into
-  Content("fleet") by webhull's plugin system — see plugin.yaml. Styling is
-  intentionally class-only, no inline styles: the consuming site owns the
-  design in its own stylesheet. Suggested starting classes below mirror a
-  typical webhull site's ".offer-*" card patterns; rename freely.
+  Rendered server-side via html/template (auto-escaping) and injected via
+  webhull's plugin system — see plugin.yaml. Styling is intentionally
+  class-only: the consuming site owns the design in its own stylesheet.
+
+  Each card is a button carrying the item's full allowlisted data as JSON
+  in data-vehicle (see the toJSON helper). Clicking it opens a shared
+  <dialog> — a gallery + full specs — built entirely from that data, no
+  extra request. "Jetzt buchen" links out to the vehicle's real booking
+  page on rent and travel (wl.be.rentandtravel.de), built from the item's
+  own id and station.id — no separate detail route needed on this side.
 -->
 <div class="fleet-grid">
   {{range .Items}}
   <article class="fleet-card">
-    {{if index . "images.outside.medium"}}
-    <img class="fleet-card-img"
-         src="{{index . "images.outside.medium"}}"
-         alt="{{index . "make"}} {{index . "model"}}"
-         loading="lazy" width="400" height="280">
-    {{end}}
-
-    <div class="fleet-card-body">
-      {{if index . "labels"}}
-      <div class="fleet-card-labels">
-        {{range index . "labels"}}<span class="fleet-badge">{{.}}</span>{{end}}
-      </div>
+    <button type="button" class="fleet-card-link" data-vehicle='{{toJSON .}}' aria-haspopup="dialog">
+      {{if index . "images.outside.medium"}}
+      <img class="fleet-card-img"
+           src="{{index . "images.outside.medium"}}"
+           alt="{{index . "make"}} {{index . "model"}}"
+           loading="lazy" width="400" height="280">
       {{end}}
 
-      <h3 class="fleet-card-title">{{index . "make"}} {{index . "model"}}</h3>
-      <p class="fleet-card-group">{{index . "group"}}</p>
+      <span class="fleet-card-body">
+        {{if index . "labels"}}
+        <span class="fleet-card-labels">
+          {{range index . "labels"}}<span class="fleet-badge">{{.}}</span>{{end}}
+        </span>
+        {{end}}
 
-      <ul class="fleet-card-specs">
-        <li>{{index . "seats"}} Sitzplätze</li>
-        <li>{{index . "beds"}} Schlafplätze</li>
-        <li>Führerschein {{index . "driversLicence"}}</li>
-        {{with index . "maxWeight"}}<li>{{.}} kg zGG</li>{{end}}
-      </ul>
+        <span class="fleet-card-title">{{index . "make"}} {{index . "model"}}</span>
+        <span class="fleet-card-group">{{index . "group"}}</span>
 
-      {{if index . "featureHighlights"}}
-      <ul class="fleet-card-features">
-        {{range index . "featureHighlights"}}<li>{{index . "name"}}</li>{{end}}
-      </ul>
-      {{end}}
+        <span class="fleet-card-specs">
+          <span>{{index . "seats"}} Sitzplätze</span>
+          <span>{{index . "beds"}} Schlafplätze</span>
+          <span>Führerschein {{index . "driversLicence"}}</span>
+        </span>
 
-      {{with index . "intro1"}}<p class="fleet-card-intro">{{.}}</p>{{end}}
-
-      <p class="fleet-card-price">
-        {{with index . "pricePerNightFrom"}}ab {{.}} €{{end}} / Nacht
-      </p>
-    </div>
+        <span class="fleet-card-price">
+          {{with index . "pricePerNightFrom"}}ab {{.}} €{{end}} / Nacht
+        </span>
+        <span class="fleet-card-cta">Details &amp; Galerie ansehen</span>
+      </span>
+    </button>
   </article>
   {{else}}
   <p class="fleet-empty">Aktuell sind keine Fahrzeuge verfügbar.</p>
   {{end}}
 </div>
+
+<dialog class="fleet-dialog" id="fleet-detail-dialog">
+  <div class="fleet-dialog-inner">
+    <button type="button" class="fleet-dialog-close" data-fleet-close aria-label="Schließen">✕</button>
+    <div class="fleet-dialog-gallery">
+      <img class="fleet-dialog-img" id="fleet-dialog-img" alt="">
+      <div class="fleet-dialog-thumbs" id="fleet-dialog-thumbs"></div>
+    </div>
+    <div class="fleet-dialog-body">
+      <p class="fleet-card-labels" id="fleet-dialog-labels"></p>
+      <h3 id="fleet-dialog-title"></h3>
+      <p class="fleet-card-group" id="fleet-dialog-group"></p>
+      <ul class="fleet-card-specs fleet-card-specs--dialog" id="fleet-dialog-specs"></ul>
+      <ul class="fleet-card-features" id="fleet-dialog-features"></ul>
+      <p class="fleet-card-intro" id="fleet-dialog-intro"></p>
+      <p class="fleet-card-price" id="fleet-dialog-price"></p>
+      <a class="btn btn--gold btn--lg" id="fleet-dialog-book" target="_blank" rel="noopener">
+        Jetzt bei rent and travel buchen
+      </a>
+    </div>
+  </div>
+</dialog>
+
+<script>
+(function () {
+  "use strict";
+  var dialog = document.getElementById("fleet-detail-dialog");
+  if (!dialog || typeof dialog.showModal !== "function") return;
+
+  var img = document.getElementById("fleet-dialog-img");
+  var thumbs = document.getElementById("fleet-dialog-thumbs");
+  var labels = document.getElementById("fleet-dialog-labels");
+  var title = document.getElementById("fleet-dialog-title");
+  var group = document.getElementById("fleet-dialog-group");
+  var specs = document.getElementById("fleet-dialog-specs");
+  var features = document.getElementById("fleet-dialog-features");
+  var intro = document.getElementById("fleet-dialog-intro");
+  var price = document.getElementById("fleet-dialog-price");
+  var book = document.getElementById("fleet-dialog-book");
+
+  function isRenderableImage(url) {
+    return !!url && !/\.tif$/i.test(url);
+  }
+
+  function galleryImages(vehicle) {
+    var all = vehicle["images.all"] || [];
+    var seen = {};
+    var out = [];
+    all.forEach(function (entry) {
+      var medium = entry.medium;
+      if (!isRenderableImage(medium) || seen[medium]) return;
+      seen[medium] = true;
+      out.push(entry);
+    });
+    if (out.length === 0) {
+      var fallback = vehicle["images.outside.medium"];
+      if (isRenderableImage(fallback)) out.push({ small: fallback, medium: fallback, large: fallback });
+    }
+    return out;
+  }
+
+  function clear(el) { while (el.firstChild) el.removeChild(el.firstChild); }
+
+  function openDialog(vehicle) {
+    var images = galleryImages(vehicle);
+
+    img.src = images.length ? (images[0].large || images[0].medium) : "";
+    img.alt = vehicle.make + " " + vehicle.model;
+
+    clear(thumbs);
+    images.forEach(function (entry, idx) {
+      var t = document.createElement("button");
+      t.type = "button";
+      t.className = "fleet-dialog-thumb" + (idx === 0 ? " is-active" : "");
+      var thumbImg = document.createElement("img");
+      thumbImg.src = entry.small || entry.medium;
+      thumbImg.alt = "";
+      thumbImg.loading = "lazy";
+      t.appendChild(thumbImg);
+      t.addEventListener("click", function () {
+        img.src = entry.large || entry.medium;
+        thumbs.querySelectorAll(".fleet-dialog-thumb").forEach(function (x) { x.classList.remove("is-active"); });
+        t.classList.add("is-active");
+      });
+      thumbs.appendChild(t);
+    });
+    thumbs.hidden = images.length <= 1;
+
+    clear(labels);
+    (vehicle.labels || []).forEach(function (l) {
+      var span = document.createElement("span");
+      span.className = "fleet-badge";
+      span.textContent = l;
+      labels.appendChild(span);
+    });
+
+    title.textContent = vehicle.make + " " + vehicle.model;
+    group.textContent = vehicle.group || "";
+
+    clear(specs);
+    [
+      vehicle.seats != null ? vehicle.seats + " Sitzplätze" : null,
+      vehicle.beds != null ? vehicle.beds + " Schlafplätze" : null,
+      vehicle.driversLicence ? "Führerschein " + vehicle.driversLicence : null,
+      vehicle.maxWeight != null ? vehicle.maxWeight + " kg zGG" : null
+    ].forEach(function (text) {
+      if (!text) return;
+      var li = document.createElement("li");
+      li.textContent = text;
+      specs.appendChild(li);
+    });
+
+    clear(features);
+    (vehicle.featureHighlights || []).forEach(function (f) {
+      var li = document.createElement("li");
+      li.textContent = f.name;
+      features.appendChild(li);
+    });
+
+    intro.textContent = vehicle.intro1 || "";
+    intro.hidden = !vehicle.intro1;
+
+    price.textContent = vehicle.pricePerNightFrom != null
+      ? "ab " + vehicle.pricePerNightFrom + " € / Nacht"
+      : "";
+
+    var stationId = vehicle["station.id"];
+    var bookURL = "https://wl.be.rentandtravel.de/detail?articleId=" + encodeURIComponent(vehicle.id)
+      + (stationId != null ? "&station=" + encodeURIComponent(stationId) : "")
+      + "&locale=de-DE&vehicleType=motorhome";
+    book.href = bookURL;
+
+    dialog.showModal();
+  }
+
+  document.querySelectorAll(".fleet-card-link").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      try {
+        openDialog(JSON.parse(btn.getAttribute("data-vehicle")));
+      } catch (e) {
+        // Malformed data for this item — fail silently rather than break
+        // the page; the card itself already shows the key facts.
+      }
+    });
+  });
+
+  dialog.addEventListener("click", function (e) {
+    // A click that lands on the <dialog> element itself (not a descendant)
+    // is a click on the ::backdrop area — close on backdrop click.
+    if (e.target === dialog) dialog.close();
+  });
+  var closeBtn = dialog.querySelector("[data-fleet-close]");
+  if (closeBtn) closeBtn.addEventListener("click", function () { dialog.close(); });
+})();
+</script>
