@@ -65,6 +65,8 @@
       <ul class="fleet-card-specs fleet-card-specs--dialog" id="fleet-dialog-specs"></ul>
       <ul class="fleet-card-features" id="fleet-dialog-features"></ul>
       <p class="fleet-card-intro" id="fleet-dialog-intro"></p>
+      <h4 class="fleet-dialog-subhead" id="fleet-dialog-tech-head" hidden>Technische Daten</h4>
+      <dl class="fleet-dialog-tech" id="fleet-dialog-tech"></dl>
       <p class="fleet-card-price" id="fleet-dialog-price"></p>
       <a class="btn btn--gold btn--lg" id="fleet-dialog-book" target="_blank" rel="noopener">
         Jetzt bei rent and travel buchen
@@ -87,6 +89,8 @@
   var specs = document.getElementById("fleet-dialog-specs");
   var features = document.getElementById("fleet-dialog-features");
   var intro = document.getElementById("fleet-dialog-intro");
+  var techHead = document.getElementById("fleet-dialog-tech-head");
+  var tech = document.getElementById("fleet-dialog-tech");
   var price = document.getElementById("fleet-dialog-price");
   var book = document.getElementById("fleet-dialog-book");
 
@@ -171,6 +175,23 @@
 
     intro.textContent = vehicle.intro1 || "";
     intro.hidden = !vehicle.intro1;
+
+    clear(tech);
+    [
+      ["Länge", vehicle.length != null ? vehicle.length + " cm" : null],
+      ["Breite", vehicle.width != null ? vehicle.width + " cm" : null],
+      ["Höhe", vehicle.height != null ? vehicle.height + " cm" : null],
+      ["Zul. Gesamtmasse", vehicle.maxWeight != null ? vehicle.maxWeight + " kg" : null]
+    ].forEach(function (pair) {
+      if (!pair[1]) return;
+      var dt = document.createElement("dt");
+      dt.textContent = pair[0];
+      var dd = document.createElement("dd");
+      dd.textContent = pair[1];
+      tech.appendChild(dt);
+      tech.appendChild(dd);
+    });
+    techHead.hidden = tech.children.length === 0;
 
     price.textContent = vehicle.pricePerNightFrom != null
       ? "ab " + vehicle.pricePerNightFrom + " € / Nacht"

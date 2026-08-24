@@ -43,6 +43,12 @@ select:
     - beds
     - driversLicence       # "B", "C1", ...
     - maxWeight
+    # Dimensions — shown as a "Technische Daten" table in the detail
+    # dialog, matching the "Fahrzeug" section on the vendor's own page.
+    # All three are already in the list response, no extra call needed.
+    - length                # cm
+    - width                 # cm
+    - height                # cm
     # Commercial
     - pricePerNightFrom
     - labels               # e.g. ["Empfehlung"]
