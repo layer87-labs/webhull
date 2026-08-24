@@ -117,6 +117,138 @@ render:
 	}
 }
 
+func TestLoadManifest_LiteralQuerySecretRejected(t *testing.T) {
+	dir := t.TempDir()
+	bad := `
+apiVersion: webhull.layer87.de/v1
+kind: HTTPDataSource
+name: querysecret
+source:
+  url: https://api.example.com/v1/items
+  query:
+    key: "AIzaSyRealLookingLiteralKey1234567890"
+select:
+  fields: [id]
+render:
+  template: fragment.tmpl.html
+  into: { page: vermietung, contentKey: fleet }
+`
+	writeManifest(t, dir, "querysecret", bad)
+
+	_, err := loadManifest(filepath.Join(dir, "querysecret", "plugin.yaml"))
+	if err == nil {
+		t.Fatal("expected error for literal secret in query param named \"key\"")
+	}
+}
+
+func TestLoadManifest_LiteralAppidQueryRejected(t *testing.T) {
+	dir := t.TempDir()
+	bad := `
+apiVersion: webhull.layer87.de/v1
+kind: HTTPDataSource
+name: appidsecret
+source:
+  url: https://api.openweathermap.org/data/2.5/weather
+  query:
+    appid: "literal-owm-key"
+select:
+  fields: [id]
+render:
+  template: fragment.tmpl.html
+  into: { page: vermietung, contentKey: fleet }
+`
+	writeManifest(t, dir, "appidsecret", bad)
+
+	_, err := loadManifest(filepath.Join(dir, "appidsecret", "plugin.yaml"))
+	if err == nil {
+		t.Fatal("expected error for literal secret in query param named \"appid\"")
+	}
+}
+
+func TestLoadManifest_QuerySecretRefAccepted(t *testing.T) {
+	dir := t.TempDir()
+	good := `
+apiVersion: webhull.layer87.de/v1
+kind: HTTPDataSource
+name: querysecretref
+source:
+  url: https://api.example.com/v1/items
+  query:
+    key: "${MAPS_API_KEY}"
+    locale: de-DE
+select:
+  fields: [id]
+render:
+  template: fragment.tmpl.html
+  into: { page: vermietung, contentKey: fleet }
+`
+	writeManifest(t, dir, "querysecretref", good)
+	t.Setenv("MAPS_API_KEY", "resolved-at-runtime")
+
+	m, err := loadManifest(filepath.Join(dir, "querysecretref", "plugin.yaml"))
+	if err != nil {
+		t.Fatalf("loadManifest: %v", err)
+	}
+	if m.Source.Query["key"] != "resolved-at-runtime" {
+		t.Errorf("query key not expanded, got %q", m.Source.Query["key"])
+	}
+	if m.Source.Query["locale"] != "de-DE" {
+		t.Errorf("ordinary query param should pass through untouched, got %q", m.Source.Query["locale"])
+	}
+}
+
+func TestLoadManifest_OrdinaryQueryParamsUnaffected(t *testing.T) {
+	dir := t.TempDir()
+	good := `
+apiVersion: webhull.layer87.de/v1
+kind: HTTPDataSource
+name: ordinaryquery
+source:
+  url: https://api.example.com/v1/items
+  query:
+    locale: de-DE
+    page: "0"
+    station: "5619"
+select:
+  fields: [id]
+render:
+  template: fragment.tmpl.html
+  into: { page: vermietung, contentKey: fleet }
+`
+	writeManifest(t, dir, "ordinaryquery", good)
+
+	if _, err := loadManifest(filepath.Join(dir, "ordinaryquery", "plugin.yaml")); err != nil {
+		t.Fatalf("ordinary literal query params should not be flagged as secrets: %v", err)
+	}
+}
+
+func TestLoadManifest_EnrichLiteralQuerySecretRejected(t *testing.T) {
+	dir := t.TempDir()
+	bad := `
+apiVersion: webhull.layer87.de/v1
+kind: HTTPDataSource
+name: enrichquerysecret
+source: { url: https://api.example.com/v1/items }
+select: { fields: [id] }
+render:
+  template: fragment.tmpl.html
+  into: { page: vermietung, contentKey: fleet }
+enrich:
+  source:
+    url: https://api.example.com/v1/items/{id}/details
+    query:
+      access_token: "literal-token-value"
+  select:
+    fields: [minDate]
+`
+	writeManifest(t, dir, "enrichquerysecret", bad)
+
+	_, err := loadManifest(filepath.Join(dir, "enrichquerysecret", "plugin.yaml"))
+	if err == nil {
+		t.Fatal("expected error for literal secret in enrich.source.query param named \"access_token\"")
+	}
+}
+
 func TestLoadManifest_EmptyFieldsRejected(t *testing.T) {
 	dir := t.TempDir()
 	bad := `

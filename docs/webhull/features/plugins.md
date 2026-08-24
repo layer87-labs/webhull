@@ -76,7 +76,15 @@ csp:
 - **`source.headers` values must be exactly `${VAR}` or `${VAR:default}`.** A literal
   value (or a value with anything else mixed in) is a startup error — the manifest is the
   one place a secret could accidentally get committed, so partial matches are rejected,
-  not just obvious ones.
+  not just obvious ones. `enrich.source.headers` follows the same rule.
+- **`source.query` values under a credential-shaped key are held to the same rule.** Many
+  mainstream APIs (Google, OpenWeatherMap, ...) pass their API key via the query string,
+  not a header — `?key=...`, `?appid=...`, `?api_key=...`. Any query parameter whose name
+  contains `key`, `token`, `secret`, `password`/`passwd`/`pwd`, `auth`, `credential`, or
+  `appid` (case-insensitive, `_`/`-` ignored) must be `${VAR}`/`${VAR:default}` too.
+  Ordinary parameters (`locale`, `page`, `station`, ...) are unaffected. A false positive
+  on a parameter that genuinely isn't a credential is resolved by renaming it — there's no
+  override.
 - **`csp.imgSrc` entries must be exact origins, no wildcards.**
 - **Two plugins cannot target the same `page`/`contentKey`**, and plugin `name`s must be
   unique — both are startup errors.

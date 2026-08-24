@@ -299,11 +299,13 @@ The health server runs independently of Gin — it stays up even if the main ser
 - **ArconGate**: independent HMAC gate for `/arcon/*` path only
 - **Rate limiter**: 3 attempts / 15 min / IP (in-memory); used by gate login and contact form
 - **Gate secret** must be ≥ 32 chars; inject via `${GATE_SECRET}` — never hardcode
-- **Plugins**: declarative only, no code execution; `source.headers` values must be
-  exactly `${VAR}`/`${VAR:default}` (literal secrets in a manifest are a startup error);
-  `select.fields` is a deny-by-default allowlist; render templates use `html/template`
-  (auto-escaping); requests never trigger a fetch — only a background loop does. See
-  `docs/webhull/features/plugins.md`.
+- **Plugins**: declarative only, no code execution; `source.headers` values, and
+  `source.query` values under a credential-shaped key (`key`, `token`, `secret`,
+  `appid`, ...), must be exactly `${VAR}`/`${VAR:default}` (literal secrets in a
+  manifest are a startup error — many mainstream APIs pass their key via the query
+  string, not a header); `select.fields` is a deny-by-default allowlist; render
+  templates use `html/template` (auto-escaping); requests never trigger a fetch — only
+  a background loop does. See `docs/webhull/features/plugins.md`.
 
 ---
 

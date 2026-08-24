@@ -24,6 +24,29 @@ const supportedAPIVersion = "webhull.layer87.de/v1"
 // good enough.
 var secretRefPattern = regexp.MustCompile(`^\$\{[A-Za-z_][A-Za-z0-9_]*(:[^}]*)?\}$`)
 
+// credentialQuerySubstrings are matched (case-insensitively, after
+// stripping "_" and "-") against query parameter names to catch the
+// common shapes mainstream APIs use for a credential in the query string —
+// Google's "key", OpenWeatherMap's "appid", "access_token", "api_key", and
+// so on — without also flagging ordinary parameters like "locale" or
+// "pageSize". Substring matching, not exact-name matching: real APIs vary
+// ("apiKey", "googleApiKey", "weather_api_key" should all be caught).
+var credentialQuerySubstrings = []string{
+	"key", "token", "secret", "password", "passwd", "pwd", "auth", "credential", "appid",
+}
+
+// isCredentialQueryKey reports whether name looks like it's meant to carry
+// an API credential — see credentialQuerySubstrings.
+func isCredentialQueryKey(name string) bool {
+	normalized := strings.ToLower(strings.NewReplacer("_", "", "-", "").Replace(name))
+	for _, s := range credentialQuerySubstrings {
+		if strings.Contains(normalized, s) {
+			return true
+		}
+	}
+	return false
+}
+
 // discover finds every plugin.yaml in immediate subdirectories of dir.
 // Missing dir is not an error — plugins are opt-in.
 func discover(dir string) ([]string, error) {
@@ -65,20 +88,12 @@ func loadManifest(path string) (*Manifest, error) {
 	if err := yaml.Unmarshal(raw, &rawManifest); err != nil {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
-	for key, val := range rawManifest.Source.Headers {
-		if !secretRefPattern.MatchString(val) {
-			return nil, fmt.Errorf(
-				"%s: source.headers[%q] must be exactly \"${VAR}\" or \"${VAR:default}\" — "+
-					"literal header values are not allowed (would commit a secret)", path, key)
-		}
+	if err := checkForLiteralSecrets(rawManifest.Source.Headers, rawManifest.Source.Query, "source", path); err != nil {
+		return nil, err
 	}
 	if rawManifest.Enrich != nil {
-		for key, val := range rawManifest.Enrich.Source.Headers {
-			if !secretRefPattern.MatchString(val) {
-				return nil, fmt.Errorf(
-					"%s: enrich.source.headers[%q] must be exactly \"${VAR}\" or \"${VAR:default}\" — "+
-						"literal header values are not allowed (would commit a secret)", path, key)
-			}
+		if err := checkForLiteralSecrets(rawManifest.Enrich.Source.Headers, rawManifest.Enrich.Source.Query, "enrich.source", path); err != nil {
+			return nil, err
 		}
 	}
 
@@ -94,6 +109,36 @@ func loadManifest(path string) (*Manifest, error) {
 	}
 	applyManifestDefaults(&m)
 	return &m, nil
+}
+
+// checkForLiteralSecrets rejects a manifest where a header value isn't
+// purely a ${VAR} reference, or where a query value under a
+// credential-shaped key (key, apikey, token, appid, ...) isn't either.
+// Ordinary query values (locale, page, station, ...) are left alone —
+// only header values get the blanket rule, since headers are almost
+// always auth-only, while query strings mix real parameters with
+// occasional credentials depending on the API.
+func checkForLiteralSecrets(headers, query map[string]string, prefix, path string) error {
+	for key, val := range headers {
+		if !secretRefPattern.MatchString(val) {
+			return fmt.Errorf(
+				"%s: %s.headers[%q] must be exactly \"${VAR}\" or \"${VAR:default}\" — "+
+					"literal header values are not allowed (would commit a secret)", path, prefix, key)
+		}
+	}
+	for key, val := range query {
+		if !isCredentialQueryKey(key) {
+			continue
+		}
+		if !secretRefPattern.MatchString(val) {
+			return fmt.Errorf(
+				"%s: %s.query[%q] looks like it carries a credential and must be exactly "+
+					"\"${VAR}\" or \"${VAR:default}\" — literal values are not allowed (would commit a secret). "+
+					"Rename the parameter if it genuinely isn't one.",
+				path, prefix, key)
+		}
+	}
+	return nil
 }
 
 func validateManifest(m *Manifest, path string) error {
