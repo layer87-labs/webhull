@@ -54,6 +54,7 @@ internal/
     security/            # Security headers middleware, BotDetector, rate limiter
     assets/              # Cache-busting: content-hash appended to static asset URLs
     gate/                # Whole-site HMAC cookie gate + /arcon/* gate (independent)
+    plugin/              # Declarative data-source plugins: HTTP fetch → allowlist → render → inject
     middleware/          # Cache, Gzip, Logging Gin middleware
 
 deploy/
@@ -298,6 +299,11 @@ The health server runs independently of Gin — it stays up even if the main ser
 - **ArconGate**: independent HMAC gate for `/arcon/*` path only
 - **Rate limiter**: 3 attempts / 15 min / IP (in-memory); used by gate login and contact form
 - **Gate secret** must be ≥ 32 chars; inject via `${GATE_SECRET}` — never hardcode
+- **Plugins**: declarative only, no code execution; `source.headers` values must be
+  exactly `${VAR}`/`${VAR:default}` (literal secrets in a manifest are a startup error);
+  `select.fields` is a deny-by-default allowlist; render templates use `html/template`
+  (auto-escaping); requests never trigger a fetch — only a background loop does. See
+  `docs/webhull/features/plugins.md`.
 
 ---
 

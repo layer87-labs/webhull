@@ -1,0 +1,9 @@
+<div class="plugin-example-grid">
+  {{range .Items}}
+  <article class="plugin-example-card">
+    <h3>{{index . "name"}}</h3>
+    <p>{{index . "email"}}</p>
+    <p>{{default "—" (index . "company.name")}}</p>
+  </article>
+  {{end}}
+</div>

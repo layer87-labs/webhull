@@ -176,6 +176,11 @@ func (s *Server) buildPageData(page *pages.Page, consentState *consent.State) *t
 		analyticsData.CollectorEnabled = true
 	}
 
+	var pluginContent map[string]string
+	if s.Plugins != nil {
+		pluginContent = s.Plugins.ContentFor(page.ID)
+	}
+
 	return &templates.PageData{
 		Page:          page,
 		Meta:          meta,
@@ -196,6 +201,7 @@ func (s *Server) buildPageData(page *pages.Page, consentState *consent.State) *t
 		Analytics:      analyticsData,
 		IsBot:          s.Bot.IsBot(""), // will be set per-request below
 		ContactEnabled: s.cfg.Contact.Enabled,
+		PluginContent:  pluginContent,
 		Assets:         s.Assets,
 	}
 }

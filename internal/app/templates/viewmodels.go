@@ -55,6 +55,13 @@ type PageData struct {
 
 	// Assets provides cache-busted asset paths.
 	Assets *assets.Service
+
+	// PluginContent holds content-key → rendered-HTML fragments injected by
+	// the plugin system for this page, read fresh per request from the
+	// plugin service's cache. Takes precedence over Page.Content so a
+	// plugin can supply a key without mutating the shared, concurrently-read
+	// *pages.Page — see Content()/HasContent() below.
+	PluginContent map[string]string
 }
 
 // SiteData holds global site identity for template rendering.
@@ -138,15 +145,24 @@ func (pd *PageData) LangCode() string {
 }
 
 // Content returns a content value by key, or empty string if not found.
+// A plugin-supplied fragment for this key takes precedence over the page's
+// own frontmatter content.
 func (pd *PageData) Content(key string) string {
+	if v, ok := pd.PluginContent[key]; ok {
+		return v
+	}
 	if pd.Page != nil && pd.Page.Content != nil {
 		return pd.Page.Content[key]
 	}
 	return ""
 }
 
-// HasContent checks if a content key exists and has a non-empty value.
+// HasContent checks if a content key exists and has a non-empty value,
+// checking plugin-supplied content first (see Content).
 func (pd *PageData) HasContent(key string) bool {
+	if v, ok := pd.PluginContent[key]; ok {
+		return v != ""
+	}
 	if pd.Page != nil && pd.Page.Content != nil {
 		v, ok := pd.Page.Content[key]
 		return ok && v != ""
