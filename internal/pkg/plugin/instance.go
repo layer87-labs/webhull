@@ -14,10 +14,11 @@ import (
 // render template, and the last-good rendered fragment. Refreshed on a
 // ticker in the background — request handlers only ever read cached.
 type instance struct {
-	manifest *Manifest
-	client   *http.Client
-	tmpl     *template.Template
-	logger   *zap.Logger
+	manifest     *Manifest
+	client       *http.Client
+	enrichClient *http.Client // nil unless manifest.Enrich is set
+	tmpl         *template.Template
+	logger       *zap.Logger
 
 	mu       sync.RWMutex
 	html     string    // last successfully rendered fragment
@@ -29,7 +30,7 @@ type instance struct {
 }
 
 func newInstance(m *Manifest, tmpl *template.Template, logger *zap.Logger) *instance {
-	return &instance{
+	in := &instance{
 		manifest: m,
 		client:   &http.Client{Timeout: m.Source.Timeout},
 		tmpl:     tmpl,
@@ -37,6 +38,10 @@ func newInstance(m *Manifest, tmpl *template.Template, logger *zap.Logger) *inst
 		stop:     make(chan struct{}),
 		done:     make(chan struct{}),
 	}
+	if m.Enrich != nil {
+		in.enrichClient = &http.Client{Timeout: m.Enrich.Source.Timeout}
+	}
+	return in
 }
 
 // refreshOnce fetches, selects and renders once, updating the cache on
@@ -59,6 +64,10 @@ func (in *instance) refreshOnce(ctx context.Context) {
 		in.logger.Warn("plugin select failed",
 			zap.Error(err))
 		return
+	}
+
+	if in.manifest.Enrich != nil {
+		enrichItems(ctx, in.enrichClient, in.manifest.Enrich, items, in.logger)
 	}
 
 	html, err := renderHTML(in.tmpl, items)

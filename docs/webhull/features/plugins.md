@@ -162,6 +162,33 @@ fetch completes). This mirrors the existing `<!-- section: name -->` marker synt
 needs no page-template changes: it works for any content key, on any template, including
 fully custom pages that manage their own HTML structure end to end.
 
+## Enrich: a follow-up request per item
+
+Sometimes the list endpoint doesn't carry everything you need — e.g. a per-vehicle
+availability calendar that lives at its own URL. `enrich` fetches one additional resource
+per item, during the same background refresh cycle, and merges the selected fields into
+that item before rendering. Still never touches the request path — N extra requests
+happen once per refresh interval, not once per page view.
+
+```yaml
+enrich:
+  source:
+    idField: id                # base item field substituted into the placeholder below; default "id"
+    url: https://api.example.com/v1/items/{id}/availability
+    query:
+      id: "{id}"                # placeholder also works inside query values
+    timeout: 8s                 # default 8s
+    maxConcurrency: 5           # default 5 — bounds concurrent per-item requests
+  select:
+    fields: [minDate, maxDate, availableDays]  # response is a single object, no "root"
+```
+
+The `{<idField>}` placeholder must appear in `source.url` or at least one `source.query`
+value — a manifest where it's missing is rejected at load time (every item would
+otherwise fetch the identical URL). `source.headers` follows the same `${VAR}`-only rule
+as the base source. A single item's enrich fetch failing is logged and that item simply
+keeps its base fields — it does not blank out the rest of the list.
+
 ## Operational notes
 
 - **Server-side only.** The visitor's browser never talks to the upstream API directly —

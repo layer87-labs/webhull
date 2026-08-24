@@ -23,6 +23,13 @@ type Manifest struct {
 	Render Render `yaml:"render"`
 	CSP    CSP    `yaml:"csp"`
 
+	// Enrich optionally fetches one additional resource per item — e.g. a
+	// per-vehicle availability calendar — and merges the selected fields
+	// into that item before rendering. Still entirely background-refresh
+	// driven: N extra requests happen once per refresh cycle, never on the
+	// request path.
+	Enrich *Enrich `yaml:"enrich,omitempty"`
+
 	// dir is the plugin's directory, used to resolve the render template path.
 	// Not part of the YAML schema.
 	dir string
@@ -91,4 +98,40 @@ type RenderTarget struct {
 // example the CDN host its images are served from.
 type CSP struct {
 	ImgSrc []string `yaml:"imgSrc"`
+}
+
+// Enrich describes a per-item follow-up fetch: one extra HTTP GET per item
+// from the base list, run during the same background refresh cycle. Useful
+// for a detail resource the list endpoint doesn't include, e.g. a
+// per-vehicle availability calendar.
+type Enrich struct {
+	Source EnrichSource `yaml:"source"`
+	Select EnrichSelect `yaml:"select"`
+}
+
+// EnrichSource describes the per-item request. URL and any Query value may
+// contain a "{<IDField>}" placeholder, substituted with the item's IDField
+// value (URL-query-escaped) before the request is made.
+type EnrichSource struct {
+	// IDField is the base item field whose value fills the "{...}"
+	// placeholder in URL/Query. Defaults to "id".
+	IDField string `yaml:"idField"`
+
+	URL     string            `yaml:"url"`
+	Query   map[string]string `yaml:"query"`
+	Headers map[string]string `yaml:"headers"`
+
+	// Timeout bounds a single per-item fetch. Default 8s.
+	Timeout time.Duration `yaml:"timeout"`
+
+	// MaxConcurrency bounds how many per-item requests run at once during
+	// one refresh cycle. Default 5.
+	MaxConcurrency int `yaml:"maxConcurrency"`
+}
+
+// EnrichSelect allowlists fields from the per-item response. The response
+// is expected to be a single JSON object (not an array) — there is no
+// "root" here, unlike the top-level Select.
+type EnrichSelect struct {
+	Fields []string `yaml:"fields"`
 }

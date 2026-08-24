@@ -13,12 +13,19 @@ import (
 // parsed JSON body. Never called from a request path — only from the
 // background refresh loop in instance.go.
 func fetch(ctx context.Context, client *http.Client, src Source) (interface{}, error) {
-	u, err := url.Parse(src.URL)
+	return fetchURL(ctx, client, src.URL, src.Query, src.Headers)
+}
+
+// fetchURL performs one GET against rawURL with the given query params and
+// headers, and returns the parsed JSON body. Shared by the base list fetch
+// (fetch, above) and the per-item enrich fetch (instance.go).
+func fetchURL(ctx context.Context, client *http.Client, rawURL string, query, headers map[string]string) (interface{}, error) {
+	u, err := url.Parse(rawURL)
 	if err != nil {
-		return nil, fmt.Errorf("invalid source url: %w", err)
+		return nil, fmt.Errorf("invalid url: %w", err)
 	}
 	q := u.Query()
-	for k, v := range src.Query {
+	for k, v := range query {
 		q.Set(k, v)
 	}
 	u.RawQuery = q.Encode()
@@ -28,7 +35,7 @@ func fetch(ctx context.Context, client *http.Client, src Source) (interface{}, e
 		return nil, fmt.Errorf("build request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
-	for k, v := range src.Headers {
+	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
 

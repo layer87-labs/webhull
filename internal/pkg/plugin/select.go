@@ -37,15 +37,23 @@ func selectItems(parsed interface{}, sel Select) ([]Item, error) {
 		if !ok {
 			continue
 		}
-		item := make(Item, len(sel.Fields))
-		for _, field := range sel.Fields {
-			if v, ok := getPath(obj, field); ok {
-				item[field] = v
-			}
-		}
-		items = append(items, item)
+		items = append(items, selectFields(obj, sel.Fields))
 	}
 	return items, nil
+}
+
+// selectFields extracts an allowlisted set of top-level (dot-path) fields
+// from a single parsed JSON object — used for enrich responses, which are
+// one object per item rather than a list. Missing fields are silently
+// omitted, matching selectItems' behavior for the base list.
+func selectFields(parsed interface{}, fields []string) Item {
+	item := make(Item, len(fields))
+	for _, field := range fields {
+		if v, ok := getPath(parsed, field); ok {
+			item[field] = v
+		}
+	}
+	return item
 }
 
 // getPath navigates a dot path through nested map[string]interface{} values

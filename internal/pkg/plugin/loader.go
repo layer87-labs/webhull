@@ -72,6 +72,15 @@ func loadManifest(path string) (*Manifest, error) {
 					"literal header values are not allowed (would commit a secret)", path, key)
 		}
 	}
+	if rawManifest.Enrich != nil {
+		for key, val := range rawManifest.Enrich.Source.Headers {
+			if !secretRefPattern.MatchString(val) {
+				return nil, fmt.Errorf(
+					"%s: enrich.source.headers[%q] must be exactly \"${VAR}\" or \"${VAR:default}\" — "+
+						"literal header values are not allowed (would commit a secret)", path, key)
+			}
+		}
+	}
 
 	expanded := expandEnvSafe(string(raw))
 	var m Manifest
@@ -120,6 +129,11 @@ func validateManifest(m *Manifest, path string) error {
 	if m.Render.Into.Page == "" || m.Render.Into.ContentKey == "" {
 		return fmt.Errorf("%s: render.into.page and render.into.contentKey are both required", path)
 	}
+	if m.Enrich != nil {
+		if err := validateEnrich(m.Enrich, path); err != nil {
+			return err
+		}
+	}
 	for _, host := range m.CSP.ImgSrc {
 		if host == "*" || strings.Contains(host, "*") {
 			return fmt.Errorf("%s: csp.imgSrc entries must be exact hosts, not wildcards (%q)", path, host)
@@ -127,6 +141,39 @@ func validateManifest(m *Manifest, path string) error {
 		if hu, err := url.Parse(host); err != nil || hu.Scheme == "" || hu.Host == "" {
 			return fmt.Errorf("%s: csp.imgSrc entry %q must be a full origin, e.g. \"https://cdn.example.com\"", path, host)
 		}
+	}
+	return nil
+}
+
+func validateEnrich(e *Enrich, path string) error {
+	if e.Source.URL == "" {
+		return fmt.Errorf("%s: enrich.source.url is required", path)
+	}
+	idField := e.Source.IDField
+	if idField == "" {
+		idField = "id"
+	}
+	placeholder := "{" + idField + "}"
+	found := strings.Contains(e.Source.URL, placeholder)
+	for _, v := range e.Source.Query {
+		if strings.Contains(v, placeholder) {
+			found = true
+		}
+	}
+	if !found {
+		return fmt.Errorf(
+			"%s: enrich.source.url or a query value must contain the %q placeholder — "+
+				"otherwise every item would fetch the identical URL", path, placeholder)
+	}
+	// Validate against a substituted URL so a malformed base URL is caught
+	// at load time rather than on the first background refresh.
+	testURL := strings.ReplaceAll(e.Source.URL, placeholder, "0")
+	u, err := url.Parse(testURL)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return fmt.Errorf("%s: enrich.source.url must be an absolute http(s) URL, got %q", path, e.Source.URL)
+	}
+	if len(e.Select.Fields) == 0 {
+		return fmt.Errorf("%s: enrich.select.fields must list at least one field", path)
 	}
 	return nil
 }
@@ -145,6 +192,17 @@ func applyManifestDefaults(m *Manifest) {
 	}
 	if m.Source.StaleWhileError <= 0 {
 		m.Source.StaleWhileError = 24 * time.Hour
+	}
+	if m.Enrich != nil {
+		if m.Enrich.Source.IDField == "" {
+			m.Enrich.Source.IDField = "id"
+		}
+		if m.Enrich.Source.Timeout <= 0 {
+			m.Enrich.Source.Timeout = 8 * time.Second
+		}
+		if m.Enrich.Source.MaxConcurrency <= 0 {
+			m.Enrich.Source.MaxConcurrency = 5
+		}
 	}
 }
 
