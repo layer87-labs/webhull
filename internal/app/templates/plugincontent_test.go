@@ -50,3 +50,49 @@ func TestPageData_Content_PluginEmptyKeyIsAbsent(t *testing.T) {
 		t.Errorf("Content(fleet) = %q, want empty string", got)
 	}
 }
+
+func TestPageData_Content_InlineMarkerSubstitution(t *testing.T) {
+	pd := &PageData{
+		Page: &pages.Page{
+			Content: map[string]string{
+				"body": "<main><h1>Vermietung</h1><!-- plugin: fleet --></main>",
+			},
+		},
+		PluginContent: map[string]string{"fleet": "<div class=\"fleet-grid\">5 cars</div>"},
+	}
+
+	got := pd.Content("body")
+	want := "<main><h1>Vermietung</h1><div class=\"fleet-grid\">5 cars</div></main>"
+	if got != want {
+		t.Errorf("Content(body) = %q, want %q", got, want)
+	}
+}
+
+func TestPageData_Content_InlineMarkerNoPluginDataYet(t *testing.T) {
+	pd := &PageData{
+		Page: &pages.Page{
+			Content: map[string]string{
+				"body": "<main><!-- plugin: fleet --></main>",
+			},
+		},
+		// No PluginContent set — e.g. the plugin's first fetch hasn't
+		// completed yet. The marker must not leak into the rendered page.
+	}
+
+	got := pd.Content("body")
+	if got != "<main></main>" {
+		t.Errorf("Content(body) = %q, want marker stripped to empty string", got)
+	}
+}
+
+func TestPageData_Content_NoMarkerFastPathUnaffected(t *testing.T) {
+	pd := &PageData{
+		Page: &pages.Page{
+			Content: map[string]string{"body": "<p>plain content, no markers</p>"},
+		},
+	}
+
+	if got := pd.Content("body"); got != "<p>plain content, no markers</p>" {
+		t.Errorf("Content(body) = %q, want unchanged", got)
+	}
+}

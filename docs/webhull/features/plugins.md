@@ -125,6 +125,18 @@ Resolves relative to the file that defines it, same rule as `contentDir`. A miss
 
 ## Consuming a plugin from a page
 
+There are two ways to pull a plugin's rendered fragment into a page, depending on the
+page's content format (see [Content Templates](../content/templates.md)):
+
+**A page using typed or named sections** — call `data.Content("fleet")` /
+`data.HasContent("fleet")` from the `.templ` template, exactly like any other named
+content key. This is the only option available to a `.templ` file, since sections are
+resolved before the template runs.
+
+**A raw-body page** (a content file with no section markers — the whole file is one
+custom HTML document, resolved via `Content("body")`) — write an inline marker at the
+injection point:
+
 ```html
 ---
 id: vermietung
@@ -133,16 +145,17 @@ slug: "vermietung"
 title: "Vermietung"
 ---
 <section>
-  <div data-plugin-content="fleet">
-    <!-- replaced by the plugin's rendered fragment at request time -->
-  </div>
+  <h2>Fahrzeuge &amp; Konditionen</h2>
+  <!-- plugin: fleet -->
 </section>
 ```
 
-In practice, the plugin's `contentKey` is referenced the same way any named content
-section is — via `data.Content("fleet")` / `data.HasContent("fleet")` in a `.templ` page,
-or via the section body if the page uses the marker-based content format. See
-[Content Templates](../content/templates.md).
+`Content(key)` scans whatever string it returns — including the entire raw `"body"`
+value — for `<!-- plugin: NAME -->` markers and replaces each with that plugin's
+rendered fragment (empty string if the plugin has no data yet, e.g. before its first
+fetch completes). This mirrors the existing `<!-- section: name -->` marker syntax and
+needs no page-template changes: it works for any content key, on any template, including
+fully custom pages that manage their own HTML structure end to end.
 
 ## Operational notes
 

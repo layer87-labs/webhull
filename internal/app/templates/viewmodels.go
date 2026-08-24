@@ -1,6 +1,9 @@
 package templates
 
 import (
+	"regexp"
+	"strings"
+
 	"github.com/layer87-labs/webhull/internal/pkg/assets"
 	"github.com/layer87-labs/webhull/internal/pkg/config"
 	"github.com/layer87-labs/webhull/internal/pkg/consent"
@@ -144,17 +147,36 @@ func (pd *PageData) LangCode() string {
 	return pd.Language().String()
 }
 
+// pluginMarkerPattern matches an inline plugin injection point, e.g.
+// "<!-- plugin: fleet -->", written directly inside a raw HTML content
+// body. Mirrors the existing "<!-- section: name -->" marker syntax.
+var pluginMarkerPattern = regexp.MustCompile(`<!--\s*plugin:\s*([a-zA-Z0-9_-]+)\s*-->`)
+
 // Content returns a content value by key, or empty string if not found.
-// A plugin-supplied fragment for this key takes precedence over the page's
-// own frontmatter content.
+//
+// A plugin can supply content two ways:
+//   - As the entire value for a content key (e.g. a page built from typed
+//     or named sections calling Content("fleet") directly) — takes
+//     precedence over the page's own frontmatter content for that key.
+//   - As an inline "<!-- plugin: fleet -->" marker inside any content
+//     value, including the raw-body-fallback "body" key used by
+//     fully-custom pages that manage their own HTML structure. Every
+//     returned value is scanned for markers and substituted.
 func (pd *PageData) Content(key string) string {
 	if v, ok := pd.PluginContent[key]; ok {
 		return v
 	}
+	var raw string
 	if pd.Page != nil && pd.Page.Content != nil {
-		return pd.Page.Content[key]
+		raw = pd.Page.Content[key]
 	}
-	return ""
+	if raw == "" || !strings.Contains(raw, "<!--") {
+		return raw
+	}
+	return pluginMarkerPattern.ReplaceAllStringFunc(raw, func(m string) string {
+		sub := pluginMarkerPattern.FindStringSubmatch(m)
+		return pd.PluginContent[sub[1]]
+	})
 }
 
 // HasContent checks if a content key exists and has a non-empty value,
