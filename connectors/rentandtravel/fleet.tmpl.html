@@ -1,0 +1,53 @@
+<!--
+  rent and travel fleet fragment.
+
+  Rendered server-side via html/template (auto-escaping) and injected into
+  Content("fleet") by webhull's plugin system — see plugin.yaml. Styling is
+  intentionally class-only, no inline styles: the consuming site owns the
+  design in its own stylesheet. Suggested starting classes below mirror a
+  typical webhull site's ".offer-*" card patterns; rename freely.
+-->
+<div class="fleet-grid">
+  {{range .Items}}
+  <article class="fleet-card">
+    {{if index . "images.outside.medium"}}
+    <img class="fleet-card-img"
+         src="{{index . "images.outside.medium"}}"
+         alt="{{index . "make"}} {{index . "model"}}"
+         loading="lazy" width="400" height="280">
+    {{end}}
+
+    <div class="fleet-card-body">
+      {{if index . "labels"}}
+      <div class="fleet-card-labels">
+        {{range index . "labels"}}<span class="fleet-badge">{{.}}</span>{{end}}
+      </div>
+      {{end}}
+
+      <h3 class="fleet-card-title">{{index . "make"}} {{index . "model"}}</h3>
+      <p class="fleet-card-group">{{index . "group"}}</p>
+
+      <ul class="fleet-card-specs">
+        <li>{{index . "seats"}} Sitzplätze</li>
+        <li>{{index . "beds"}} Schlafplätze</li>
+        <li>Führerschein {{index . "driversLicence"}}</li>
+        {{with index . "maxWeight"}}<li>{{.}} kg zGG</li>{{end}}
+      </ul>
+
+      {{if index . "featureHighlights"}}
+      <ul class="fleet-card-features">
+        {{range index . "featureHighlights"}}<li>{{index . "name"}}</li>{{end}}
+      </ul>
+      {{end}}
+
+      {{with index . "intro1"}}<p class="fleet-card-intro">{{.}}</p>{{end}}
+
+      <p class="fleet-card-price">
+        {{with index . "pricePerNightFrom"}}ab {{.}} €{{end}} / Nacht
+      </p>
+    </div>
+  </article>
+  {{else}}
+  <p class="fleet-empty">Aktuell sind keine Fahrzeuge verfügbar.</p>
+  {{end}}
+</div>

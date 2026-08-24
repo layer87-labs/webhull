@@ -1,0 +1,64 @@
+# webhull plugin manifest — rent and travel vehicle fleet.
+# See README.md in this directory for setup instructions, and
+# https://github.com/layer87-labs/webhull/blob/main/docs/webhull/features/plugins.md
+# for the full plugin manifest reference.
+#
+# Fetches a station's rentable vehicle fleet from the rent and travel
+# booking-engine API and renders it as an HTML fragment. No authentication
+# is required for this endpoint — it is the same public data the vendor's
+# own booking iframe reads.
+apiVersion: webhull.layer87.de/v1
+kind: HTTPDataSource
+name: rentandtravel
+
+source:
+  url: https://api.be.rentandtravel.de/int/${RNT_STATION_ID:5619}/v1/articles
+  query:
+    locale: "${RNT_LOCALE:de-DE}"
+    vehicleType: "${RNT_VEHICLE_TYPE:motorhome}"
+    station: "${RNT_STATION_ID:5619}"
+    page: "0"
+    pageSize: "${RNT_PAGE_SIZE:24}"
+    orderBy: priceFrom
+    orderDescending: "false"
+    countryCode: DE
+    whiteLabel: "true"
+    includeOffers: "true"
+  timeout: 8s
+  refreshInterval: 15m
+  staleWhileError: 24h
+
+select:
+  root: articles
+  fields:
+    # Identity & basics
+    - id
+    - slug
+    - make
+    - model
+    - group               # e.g. "Teilintegriert", "Camper Van"
+    - modelYear
+    # Capacity & license
+    - seats
+    - beds
+    - driversLicence       # "B", "C1", ...
+    - maxWeight
+    # Commercial
+    - pricePerNightFrom
+    - labels               # e.g. ["Empfehlung"]
+    - featureHighlights    # [{id, name}, ...] — shown as badges
+    - intro1
+    # Image — deliberately images.outside.medium only. The upstream feed
+    # also serves .tif files for interieur/bath/bed categories, which no
+    # browser renders; "outside" is consistently a .png/.jpg in practice.
+    - images.outside.medium
+
+render:
+  template: fleet.tmpl.html
+  into:
+    page: vermietung
+    contentKey: fleet
+
+csp:
+  imgSrc:
+    - https://cdn.be.rentandtravel.de
