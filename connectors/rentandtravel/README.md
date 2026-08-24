@@ -14,10 +14,13 @@ the visitor's browser for the listing itself (only vehicle images load from
 `cdn.be.rentandtravel.de`, declared via `csp.imgSrc`).
 
 The vendor's own booking/payment flow (Stripe checkout) is untouched. Each card opens a
-detail dialog — a photo gallery and full specs, built entirely from data already fetched
-with the list (no per-vehicle API call) — whose "Jetzt buchen" button links out to that
-vehicle's real booking page on `wl.be.rentandtravel.de`, built from the item's own `id`
-and `station.id`. No separate detail route on the consuming site.
+detail dialog — a photo gallery, full specs, and a read-only availability calendar (one
+extra request per vehicle, fetched via `enrich` during the same background refresh —
+never on the request path) — whose "Jetzt buchen" button links out to that vehicle's real
+booking page on `wl.be.rentandtravel.de`, built from the item's own `id` and
+`station.id`. No separate detail route on the consuming site, and no date-selection /
+minimum-nights / pickup-return booking logic reimplemented here — that stays exclusively
+with rent and travel's own flow, one click away.
 
 ## Setup
 
@@ -68,3 +71,7 @@ carries a permissive CORS header. If rent and travel changes this in the future,
   assumes EUR, whole numbers (`110` → "ab 110 €").
 - Not every vehicle sends every field (`intro1`, `labels` are often empty) — the
   template guards each with `{{if}}`/`{{with}}` rather than assuming presence.
+- The availability calendar shows 4 states (available / no pickup / no return /
+  unavailable) matching the vendor's own legend, but collapses the 5th ("no pickup and no
+  return", both restrictions on the same day) into a distinct grey cell without its own
+  legend entry — a simplification, not a data gap.

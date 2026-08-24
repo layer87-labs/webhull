@@ -67,6 +67,26 @@
       <p class="fleet-card-intro" id="fleet-dialog-intro"></p>
       <h4 class="fleet-dialog-subhead" id="fleet-dialog-tech-head" hidden>Technische Daten</h4>
       <dl class="fleet-dialog-tech" id="fleet-dialog-tech"></dl>
+
+      <h4 class="fleet-dialog-subhead" id="fleet-dialog-cal-head" hidden>Verfügbarkeit</h4>
+      <div class="fleet-cal" id="fleet-cal" hidden>
+        <div class="fleet-cal-nav">
+          <button type="button" class="fleet-cal-nav-btn" id="fleet-cal-prev" aria-label="Vorheriger Monat">←</button>
+          <span class="fleet-cal-month" id="fleet-cal-month"></span>
+          <button type="button" class="fleet-cal-nav-btn" id="fleet-cal-next" aria-label="Nächster Monat">→</button>
+        </div>
+        <div class="fleet-cal-weekdays">
+          <span>Mo</span><span>Di</span><span>Mi</span><span>Do</span><span>Fr</span><span>Sa</span><span>So</span>
+        </div>
+        <div class="fleet-cal-grid" id="fleet-cal-grid"></div>
+        <div class="fleet-cal-legend">
+          <span><i class="fleet-cal-swatch fleet-cal-swatch--available"></i> Verfügbar</span>
+          <span><i class="fleet-cal-swatch fleet-cal-swatch--no-pickup"></i> Keine Abholung möglich</span>
+          <span><i class="fleet-cal-swatch fleet-cal-swatch--no-return"></i> Keine Rückgabe möglich</span>
+          <span><i class="fleet-cal-swatch fleet-cal-swatch--unavailable"></i> Nicht verfügbar</span>
+        </div>
+      </div>
+
       <p class="fleet-card-price" id="fleet-dialog-price"></p>
       <a class="btn btn--gold btn--lg" id="fleet-dialog-book" target="_blank" rel="noopener">
         Jetzt bei rent and travel buchen
@@ -91,8 +111,115 @@
   var intro = document.getElementById("fleet-dialog-intro");
   var techHead = document.getElementById("fleet-dialog-tech-head");
   var tech = document.getElementById("fleet-dialog-tech");
+  var calHead = document.getElementById("fleet-dialog-cal-head");
+  var cal = document.getElementById("fleet-cal");
+  var calMonth = document.getElementById("fleet-cal-month");
+  var calGrid = document.getElementById("fleet-cal-grid");
+  var calPrev = document.getElementById("fleet-cal-prev");
+  var calNext = document.getElementById("fleet-cal-next");
   var price = document.getElementById("fleet-dialog-price");
   var book = document.getElementById("fleet-dialog-book");
+
+  var MONTH_NAMES = ["Januar", "Februar", "März", "April", "Mai", "Juni",
+    "Juli", "August", "September", "Oktober", "November", "Dezember"];
+
+  // Parsed with the (year, month, day) constructor — not `new Date(str)` —
+  // so the calendar's calendar-day arithmetic is unambiguous regardless of
+  // the viewer's timezone offset.
+  function parseISODate(s) {
+    var parts = s.split("-");
+    return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  }
+  function toISODate(d) {
+    var m = String(d.getMonth() + 1).padStart(2, "0");
+    var day = String(d.getDate()).padStart(2, "0");
+    return d.getFullYear() + "-" + m + "-" + day;
+  }
+  function sameMonth(a, b) { return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth(); }
+
+  // calState holds the currently-open vehicle's availability data plus
+  // which month is on screen, so calPrev/calNext can re-render without
+  // needing the vehicle object passed back in.
+  var calState = null;
+
+  function renderCalendarMonth() {
+    if (!calState) return;
+    var shown = calState.shownMonth;
+    calMonth.textContent = MONTH_NAMES[shown.getMonth()] + " " + shown.getFullYear();
+
+    var firstOfMonth = new Date(shown.getFullYear(), shown.getMonth(), 1);
+    var daysInMonth = new Date(shown.getFullYear(), shown.getMonth() + 1, 0).getDate();
+    // getDay(): 0=Sun..6=Sat. Convert to a Monday-first offset (0=Mon..6=Sun).
+    var leadingBlanks = (firstOfMonth.getDay() + 6) % 7;
+
+    clear(calGrid);
+    for (var b = 0; b < leadingBlanks; b++) {
+      var blank = document.createElement("span");
+      blank.className = "fleet-cal-day fleet-cal-day--blank";
+      calGrid.appendChild(blank);
+    }
+    for (var day = 1; day <= daysInMonth; day++) {
+      var d = new Date(shown.getFullYear(), shown.getMonth(), day);
+      var iso = toISODate(d);
+      var cell = document.createElement("span");
+      cell.className = "fleet-cal-day " + calDayClass(iso);
+      cell.textContent = String(day);
+      var minNights = calState.minNightsMap[iso];
+      if (minNights != null) cell.title = "Mindestens " + minNights + " Nächte";
+      calGrid.appendChild(cell);
+    }
+
+    calPrev.disabled = sameMonth(shown, calState.minMonth) || shown < calState.minMonth;
+    calNext.disabled = sameMonth(shown, calState.maxMonth) || shown > calState.maxMonth;
+  }
+
+  function calDayClass(iso) {
+    if (!calState.availableSet.has(iso)) return "fleet-cal-day--unavailable";
+    var noPickup = calState.disabledPickupSet.has(iso);
+    var noReturn = calState.disabledReturnSet.has(iso);
+    if (noPickup && noReturn) return "fleet-cal-day--no-pickup fleet-cal-day--no-return";
+    if (noPickup) return "fleet-cal-day--no-pickup";
+    if (noReturn) return "fleet-cal-day--no-return";
+    return "fleet-cal-day--available";
+  }
+
+  function setupCalendar(vehicle) {
+    var availableDays = vehicle.availableDays || [];
+    if (!vehicle.minDate || !vehicle.maxDate || availableDays.length === 0) {
+      cal.hidden = true;
+      calHead.hidden = true;
+      calState = null;
+      return;
+    }
+
+    calState = {
+      availableSet: new Set(availableDays),
+      disabledPickupSet: new Set(vehicle.disabledPickup || []),
+      disabledReturnSet: new Set(vehicle.disabledReturn || []),
+      minNightsMap: vehicle.minNightsMap || {},
+      minMonth: parseISODate(vehicle.minDate),
+      maxMonth: parseISODate(vehicle.maxDate),
+      shownMonth: parseISODate(vehicle.minDate)
+    };
+    calState.minMonth.setDate(1);
+    calState.maxMonth.setDate(1);
+    calState.shownMonth.setDate(1);
+
+    cal.hidden = false;
+    calHead.hidden = false;
+    renderCalendarMonth();
+  }
+
+  calPrev.addEventListener("click", function () {
+    if (!calState) return;
+    calState.shownMonth = new Date(calState.shownMonth.getFullYear(), calState.shownMonth.getMonth() - 1, 1);
+    renderCalendarMonth();
+  });
+  calNext.addEventListener("click", function () {
+    if (!calState) return;
+    calState.shownMonth = new Date(calState.shownMonth.getFullYear(), calState.shownMonth.getMonth() + 1, 1);
+    renderCalendarMonth();
+  });
 
   function isRenderableImage(url) {
     return !!url && !/\.tif$/i.test(url);
@@ -193,6 +320,8 @@
     });
     techHead.hidden = tech.children.length === 0;
 
+    setupCalendar(vehicle);
+
     price.textContent = vehicle.pricePerNightFrom != null
       ? "ab " + vehicle.pricePerNightFrom + " € / Nacht"
       : "";
@@ -211,8 +340,10 @@
       try {
         openDialog(JSON.parse(btn.getAttribute("data-vehicle")));
       } catch (e) {
-        // Malformed data for this item — fail silently rather than break
-        // the page; the card itself already shows the key facts.
+        // Malformed data for this item — don't break the page (the card
+        // itself already shows the key facts), but don't hide the error
+        // either; a site owner should see this in the console.
+        console.error("fleet dialog: failed to open", e);
       }
     });
   });

@@ -67,6 +67,27 @@ select:
     # each item.
     - station.id
 
+# Per-vehicle availability calendar. The list endpoint doesn't carry this —
+# one extra request per vehicle, fetched during the same background
+# refresh cycle (never on the request path). Verified unauthenticated,
+# same as the base source.
+enrich:
+  source:
+    idField: id
+    url: https://api.be.rentandtravel.de/int/${RNT_STATION_ID:5619}/v1/articles/{id}/getAvailabilities
+    query:
+      id: "{id}"
+    timeout: 8s
+    maxConcurrency: 5
+  select:
+    fields:
+      - minDate
+      - maxDate
+      - availableDays    # dates within [minDate,maxDate] that aren't fully booked
+      - disabledPickup    # subset of availableDays where a rental can't *start*
+      - disabledReturn    # subset of availableDays where a rental can't *end*
+      - minNightsMap       # { "YYYY-MM-DD": minNights } — shown as a tooltip
+
 render:
   template: fleet.tmpl.html
   into:
