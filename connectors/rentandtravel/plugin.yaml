@@ -42,6 +42,7 @@ select:
     - seats
     - beds
     - driversLicence       # "B", "C1", ...
+    - petsAllowed          # shown as a Ja/Nein stat — a real filter criterion
     - maxWeight
     # Dimensions — shown as a "Technische Daten" table in the detail
     # dialog, matching the "Fahrzeug" section on the vendor's own page.
