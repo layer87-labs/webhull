@@ -1,0 +1,27 @@
+# Example plugin manifest — see docs/webhull/features/plugins.md.
+#
+# Fetches https://jsonplaceholder.typicode.com/users (a public test API, no
+# auth needed) and renders a name/email card per user. Point pluginsDir at
+# examples/plugins/ in pages.yaml to try it locally with `make run`.
+apiVersion: webhull.layer87.de/v1
+kind: HTTPDataSource
+name: example-http-source
+
+source:
+  url: https://jsonplaceholder.typicode.com/users
+  timeout: 8s
+  refreshInterval: 15m
+  staleWhileError: 24h
+
+select:
+  # No root: the response body itself is the array.
+  fields:
+    - name
+    - email
+    - company.name
+
+render:
+  template: card.tmpl.html
+  into:
+    page: home
+    contentKey: example

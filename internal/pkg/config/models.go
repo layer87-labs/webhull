@@ -24,6 +24,11 @@ type SiteConfig struct {
 	// Relative to the config file's directory. Structure: contentDir/{lang}/*.html
 	ContentDir string `yaml:"contentDir,omitempty"`
 
+	// PluginsDir is the directory containing plugin subdirectories, each with
+	// its own plugin.yaml manifest. Relative to the config file's directory
+	// (same resolution rule as ContentDir). Empty disables the plugin system.
+	PluginsDir string `yaml:"pluginsDir,omitempty"`
+
 	// Contact form
 	Contact ContactConfig `yaml:"contact"`
 

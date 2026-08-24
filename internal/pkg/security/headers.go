@@ -21,6 +21,10 @@ type SecurityHeadersConfig struct {
 	// inline scripts, inline styles, Google Fonts, and data URIs needed by the
 	// ARCON experience pages.
 	ArconPathPrefix string
+
+	// ExtraImgSrc lists additional origins allowed in img-src, e.g. a
+	// plugin's CDN host for externally-sourced images.
+	ExtraImgSrc []string
 }
 
 // SecurityHeadersMiddleware sets common security headers including CSP.
@@ -64,11 +68,16 @@ func buildCSP(cfg SecurityHeadersConfig) string {
 		}
 	}
 
+	imgSrc := "'self' data:"
+	for _, host := range cfg.ExtraImgSrc {
+		imgSrc += " " + host
+	}
+
 	directives := []string{
 		"default-src 'self'",
 		"script-src " + scriptSrc,
 		"style-src 'self' 'unsafe-inline'",
-		"img-src 'self' data:",
+		"img-src " + imgSrc,
 		"font-src 'self'",
 		"connect-src " + connectSrc,
 		"frame-src 'none'",

@@ -25,6 +25,7 @@ import (
 	"github.com/layer87-labs/webhull/internal/pkg/middleware"
 	"github.com/layer87-labs/webhull/internal/pkg/navigation"
 	"github.com/layer87-labs/webhull/internal/pkg/pages"
+	"github.com/layer87-labs/webhull/internal/pkg/plugin"
 	"github.com/layer87-labs/webhull/internal/pkg/security"
 	"github.com/layer87-labs/webhull/internal/pkg/seo"
 	"github.com/layer87-labs/webhull/internal/pkg/staticassets"
@@ -48,8 +49,9 @@ type Server struct {
 	SEO        *seo.Service
 	Bot        *security.BotDetector
 	Assets     *assets.Service
-	Gate       *gate.Service // nil when gate is disabled
-	ArconGate  *gate.Service // nil when arcon gate is disabled
+	Gate       *gate.Service   // nil when gate is disabled
+	ArconGate  *gate.Service   // nil when arcon gate is disabled
+	Plugins    *plugin.Service // nil when no plugins are configured
 
 	// gateLimiter is a dedicated rate limiter for /gate POST submissions.
 	gateLimiter *security.RateLimiter
@@ -191,6 +193,16 @@ func (s *Server) initServices() error {
 		s.Forms = forms.NewService(s.cfg.Contact, s.cfg.Mail, mailer, limiter, s.logger)
 	}
 
+	// Plugins (optional) — background data-source plugins that inject
+	// rendered HTML fragments into page content. Loaded before Analytics so
+	// buildPageData can already read from it once requests start flowing.
+	if s.cfg.PluginsDir != "" {
+		s.Plugins, err = plugin.NewService(s.cfg.PluginsDir, s.logger)
+		if err != nil {
+			return fmt.Errorf("plugins: %w", err)
+		}
+	}
+
 	// Analytics
 	s.initAnalytics()
 
@@ -327,6 +339,9 @@ func (s *Server) setupMiddleware() {
 	}
 	if s.cfg.ArconGate.ContentDir != "" {
 		secCfg.ArconPathPrefix = "/arcon"
+	}
+	if s.Plugins != nil {
+		secCfg.ExtraImgSrc = s.Plugins.ImgSrcHosts()
 	}
 
 	s.router.Use(gin.Recovery())
@@ -484,6 +499,9 @@ func (s *Server) Start() error {
 
 	// Cleanup
 	s.Analytics.Close()
+	if s.Plugins != nil {
+		s.Plugins.Stop()
+	}
 
 	// Shutdown health server
 	if s.healthSrv != nil {

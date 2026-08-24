@@ -1,0 +1,99 @@
+# webhull plugin manifest — rent and travel vehicle fleet.
+# See README.md in this directory for setup instructions, and
+# https://github.com/layer87-labs/webhull/blob/main/docs/webhull/features/plugins.md
+# for the full plugin manifest reference.
+#
+# Fetches a station's rentable vehicle fleet from the rent and travel
+# booking-engine API and renders it as an HTML fragment. No authentication
+# is required for this endpoint — it is the same public data the vendor's
+# own booking iframe reads.
+apiVersion: webhull.layer87.de/v1
+kind: HTTPDataSource
+name: rentandtravel
+
+source:
+  url: https://api.be.rentandtravel.de/int/${RNT_STATION_ID:5619}/v1/articles
+  query:
+    locale: "${RNT_LOCALE:de-DE}"
+    vehicleType: "${RNT_VEHICLE_TYPE:motorhome}"
+    station: "${RNT_STATION_ID:5619}"
+    page: "0"
+    pageSize: "${RNT_PAGE_SIZE:24}"
+    orderBy: priceFrom
+    orderDescending: "false"
+    countryCode: DE
+    whiteLabel: "true"
+    includeOffers: "true"
+  timeout: 8s
+  refreshInterval: 15m
+  staleWhileError: 24h
+
+select:
+  root: articles
+  fields:
+    # Identity & basics
+    - id
+    - slug
+    - make
+    - model
+    - group               # e.g. "Teilintegriert", "Camper Van"
+    - modelYear
+    # Capacity & license
+    - seats
+    - beds
+    - driversLicence       # "B", "C1", ...
+    - maxWeight
+    # Dimensions — shown as a "Technische Daten" table in the detail
+    # dialog, matching the "Fahrzeug" section on the vendor's own page.
+    # All three are already in the list response, no extra call needed.
+    - length                # cm
+    - width                 # cm
+    - height                # cm
+    # Commercial
+    - pricePerNightFrom
+    - labels               # e.g. ["Empfehlung"]
+    - featureHighlights    # [{id, name}, ...] — shown as badges
+    - intro1
+    # Card image — deliberately images.outside.medium only.
+    - images.outside.medium
+    # Full gallery for the detail view. The list endpoint already returns
+    # every image (outside/layout/layoutNight/interieur/bath/bed) per
+    # vehicle — no extra per-item API call needed. Some categories include
+    # .tif files no browser renders; the template filters those out.
+    - images.all
+    # station.id is echoed back so the template can link "Jetzt buchen"
+    # to the vehicle's real booking page on rent and travel — no separate
+    # detail page needed on our side, and no code, just data already on
+    # each item.
+    - station.id
+
+# Per-vehicle availability calendar. The list endpoint doesn't carry this —
+# one extra request per vehicle, fetched during the same background
+# refresh cycle (never on the request path). Verified unauthenticated,
+# same as the base source.
+enrich:
+  source:
+    idField: id
+    url: https://api.be.rentandtravel.de/int/${RNT_STATION_ID:5619}/v1/articles/{id}/getAvailabilities
+    query:
+      id: "{id}"
+    timeout: 8s
+    maxConcurrency: 5
+  select:
+    fields:
+      - minDate
+      - maxDate
+      - availableDays    # dates within [minDate,maxDate] that aren't fully booked
+      - disabledPickup    # subset of availableDays where a rental can't *start*
+      - disabledReturn    # subset of availableDays where a rental can't *end*
+      - minNightsMap       # { "YYYY-MM-DD": minNights } — shown as a tooltip
+
+render:
+  template: fleet.tmpl.html
+  into:
+    page: vermietung
+    contentKey: fleet
+
+csp:
+  imgSrc:
+    - https://cdn.be.rentandtravel.de

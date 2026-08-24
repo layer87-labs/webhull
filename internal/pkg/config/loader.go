@@ -62,15 +62,10 @@ func Load(configPath string, pagesPath string) (*SiteConfig, error) {
 	// Resolve relative paths to absolute using the directory that owns the file.
 	// Absolute paths are used as-is (filepath.Join would corrupt them on non-Unix
 	// systems or produce double-segments like /app/site/app/site/static).
-	if cfg.ContentDir != "" && !filepath.IsAbs(cfg.ContentDir) {
-		cfg.ContentDir = filepath.Join(contentDir, cfg.ContentDir)
-	}
-	if cfg.Server.StaticDir != "" && !filepath.IsAbs(cfg.Server.StaticDir) {
-		cfg.Server.StaticDir = filepath.Join(contentDir, cfg.Server.StaticDir)
-	}
-	if cfg.ArconGate.ContentDir != "" && !filepath.IsAbs(cfg.ArconGate.ContentDir) {
-		cfg.ArconGate.ContentDir = filepath.Join(contentDir, cfg.ArconGate.ContentDir)
-	}
+	cfg.ContentDir = resolveRelPath(contentDir, cfg.ContentDir)
+	cfg.Server.StaticDir = resolveRelPath(contentDir, cfg.Server.StaticDir)
+	cfg.ArconGate.ContentDir = resolveRelPath(contentDir, cfg.ArconGate.ContentDir)
+	cfg.PluginsDir = resolveRelPath(contentDir, cfg.PluginsDir)
 
 	// Resolve mail template body files.
 	// In split-config mode (pagesPath != ""), templates are typically bundled
@@ -300,6 +295,12 @@ func mergePages(cfg *SiteConfig, data []byte) error {
 		cfg.ContentDir = overlay.ContentDir
 	}
 
+	// Plugins directory — pages file owns this like ContentDir: plugins are
+	// part of a site's content/behavior, not an operational concern.
+	if overlay.PluginsDir != "" {
+		cfg.PluginsDir = overlay.PluginsDir
+	}
+
 	// Navigation
 	if len(overlay.Navigation.Header) > 0 {
 		cfg.Navigation.Header = overlay.Navigation.Header
@@ -420,6 +421,17 @@ func parseRaw(data []byte) (*SiteConfig, error) {
 	}
 
 	return cfg, nil
+}
+
+// resolveRelPath resolves path relative to base unless it is empty or
+// already absolute. Absolute paths are used as-is (filepath.Join would
+// corrupt them on non-Unix systems or produce double-segments like
+// /app/site/app/site/static).
+func resolveRelPath(base, path string) string {
+	if path == "" || filepath.IsAbs(path) {
+		return path
+	}
+	return filepath.Join(base, path)
 }
 
 // expandEnvSafe expands ${VAR} and $VAR but handles ${VAR:default} syntax
