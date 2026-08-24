@@ -29,15 +29,23 @@ with rent and travel's own flow, one click away.
    rent and travel support.
 2. Copy this directory into your site's plugin directory, e.g.
    `site/plugins/rentandtravel/`.
-3. Set the env var (or edit the default inline in `plugin.yaml`):
+3. **Copy `fleet.js` into your site's static assets** so it resolves at
+   `/static/js/rentandtravel-fleet.js` — e.g. `site/static/js/rentandtravel-fleet.js`.
+   The dialog's JS ships as an external file, not inline in `fleet.tmpl.html`: webhull's
+   default CSP is `script-src 'self' [...]` with no `'unsafe-inline'`/nonce, so an inline
+   `<script>` is silently dropped by the browser at runtime — no console error a
+   server-side check would catch, no exception a manual re-execution via devtools would
+   reproduce either (that bypasses page CSP). Skipping this step means the detail dialog
+   renders but never opens, in every browser, on every visit.
+4. Set the env var (or edit the default inline in `plugin.yaml`):
 
    ```bash
    RNT_STATION_ID=1234
    ```
 
-4. Adjust `render.into.page` / `render.into.contentKey` in `plugin.yaml` to match your
+5. Adjust `render.into.page` / `render.into.contentKey` in `plugin.yaml` to match your
    page's frontmatter `id:` and the content key your template reads.
-5. Style `.fleet-*` and `.fleet-dialog*` classes in your site's stylesheet — the template
+6. Style `.fleet-*` and `.fleet-dialog*` classes in your site's stylesheet — the template
    ships unstyled, class-only markup. The dialog uses the native HTML `<dialog>` element
    (`showModal()`); on a browser without dialog support the "Details ansehen" button
    simply does nothing — the card's own summary data is still fully visible, so nothing
@@ -75,3 +83,5 @@ carries a permissive CORS header. If rent and travel changes this in the future,
   unavailable) matching the vendor's own legend, but collapses the 5th ("no pickup and no
   return", both restrictions on the same day) into a distinct grey cell without its own
   legend entry — a simplification, not a data gap.
+- The dialog's JS is an external file (`fleet.js`, see setup step 3), not inline, on
+  purpose — see `docs/webhull/features/plugins.md`'s CSP section.

@@ -208,3 +208,14 @@ keeps its base fields — it does not blank out the rest of the list.
   temporary upstream outage doesn't take down the page section.
 - **Graceful shutdown.** Every plugin's background refresh loop is stopped as part of the
   server's normal shutdown sequence, alongside `Analytics.Close()`.
+- **If a render template needs client-side JS, it must be an external, same-origin file
+  — never an inline `<script>` in the template.** webhull's default CSP is
+  `script-src 'self' [+ analytics host]`, with no `'unsafe-inline'` and no nonce. A
+  `<script>` block emitted inline by a render template is silently dropped by the browser
+  at runtime: no server-side check catches it (the HTML is well-formed, the fetch/select/
+  render pipeline succeeds), and no exception surfaces to a script re-executed manually
+  via devtools/CDP either — that bypasses the page's CSP entirely, which makes this class
+  of bug look fixed in exactly the tooling most likely to be used to debug it. Ship the
+  script as a companion file in the plugin directory and document, in the plugin's
+  README, that consuming sites must copy it into their own static assets and reference it
+  with `<script src="...">`.
