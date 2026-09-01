@@ -35,6 +35,12 @@ type SiteConfig struct {
 	// Analytics providers
 	Analytics AnalyticsConfig `yaml:"analytics"`
 
+	// Observability — error tracking in the browser and CSP violation
+	// reporting. Both targets are configuration, never compiled in: a fixed
+	// endpoint binds the binary to one installation and turns it into a tool
+	// that reports into someone else's system when run elsewhere.
+	Observability ObservabilityConfig `yaml:"observability"`
+
 	// Consent / Cookie management
 	Consent ConsentConfig `yaml:"consent"`
 
@@ -263,6 +269,60 @@ type AnalyticsConfig struct {
 	Collector *CollectorConfig `yaml:"collector,omitempty"`
 }
 
+// ObservabilityConfig wires the site into error tracking and CSP reporting.
+//
+// The two are separate signals that happen to share a backend. Error tracking
+// closes the gap that server-side tracing leaves open by construction: a
+// JavaScript exception that never reaches the server appears in no trace. CSP
+// reporting is not an error channel at all — a report means the browser
+// refused something, which is either an attack, a browser extension, or a
+// rule that is too tight.
+type ObservabilityConfig struct {
+	ErrorTracking *ErrorTrackingConfig `yaml:"errorTracking,omitempty"`
+	CSP           CSPConfig            `yaml:"csp"`
+}
+
+// ErrorTrackingConfig configures a Sentry-compatible browser SDK
+// (Sentry, GlitchTip, ...).
+type ErrorTrackingConfig struct {
+	Enabled bool `yaml:"enabled"`
+
+	// DSN is the Sentry-format ingest URL. It is public by design — it ends
+	// up in every delivered page and is good for writing and nothing else.
+	DSN string `yaml:"dsn"`
+
+	// SDKURL is where the browser loads the SDK from. No default on purpose:
+	// hardcoding a CDN would decide for every operator where their visitors'
+	// browsers fetch code from. Serve it from the site's own static directory
+	// (e.g. /assets/sentry.min.js) or name a CDN deliberately.
+	SDKURL string `yaml:"sdkURL"`
+
+	// Environment separates production from staging in the backend. Falls back
+	// to server.environment when empty.
+	Environment string `yaml:"environment"`
+
+	// Release tags events with a version, so a spike can be tied to a deploy.
+	Release string `yaml:"release"`
+
+	// SampleRate between 0 and 1. Errors are rare; the default of 1 is the
+	// right one for almost every site.
+	SampleRate float64 `yaml:"sampleRate"`
+}
+
+// CSPConfig configures Content-Security-Policy reporting and enforcement.
+type CSPConfig struct {
+	// ReportURI receives violation reports. A relative path is the right
+	// choice: it resolves same-origin, which is preflight-free today with
+	// report-uri and stays preflight-free after the move to
+	// Reporting-Endpoints, where a cross-origin endpoint needs CORS.
+	ReportURI string `yaml:"reportURI"`
+
+	// ReportOnly sends the policy as Content-Security-Policy-Report-Only.
+	// The browser then checks the rule, lets everything through, and reports
+	// anyway — the only way to learn what a policy costs before enforcing it.
+	ReportOnly bool `yaml:"reportOnly"`
+}
+
 // PlausibleConfig for Plausible Analytics proxy.
 type PlausibleConfig struct {
 	Enabled    bool   `yaml:"enabled"`
@@ -322,6 +382,22 @@ type ServerConfig struct {
 	StaticDir         string        `yaml:"staticDir"`
 	CacheMaxAge       time.Duration `yaml:"cacheMaxAge"`
 	StaticCacheMaxAge time.Duration `yaml:"staticCacheMaxAge"`
+
+	// HSTS extends the Strict-Transport-Security header sent in production.
+	HSTS HSTSConfig `yaml:"hsts"`
+}
+
+// HSTSConfig extends Strict-Transport-Security beyond the plain max-age.
+//
+// Both fields default to false, and that default is the point.
+// includeSubDomains applies to EVERY subdomain of the site, including future
+// ones and ones hosted elsewhere; preload enters the domain into a list
+// shipped inside browsers, where removal takes months. Neither belongs in a
+// default, and neither should be switched on without knowing every hostname
+// under the domain.
+type HSTSConfig struct {
+	IncludeSubdomains bool `yaml:"includeSubdomains"`
+	Preload           bool `yaml:"preload"`
 }
 
 // HealthConfig holds health server settings.

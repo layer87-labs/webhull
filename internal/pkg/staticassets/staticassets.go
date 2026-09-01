@@ -19,6 +19,7 @@ import (
 //	js/consent.js     →  /static/js/consent.js
 //	js/contact.js     →  /static/js/contact.js
 //	js/analytics.js   →  /static/js/analytics.js
+//	js/errortracking-init.js → /static/js/errortracking-init.js
 //
 //go:embed js css
 var FS embed.FS

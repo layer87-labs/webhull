@@ -176,6 +176,8 @@ func (s *Server) buildPageData(page *pages.Page, consentState *consent.State) *t
 		analyticsData.CollectorEnabled = true
 	}
 
+	errorTracking := s.errorTrackingData()
+
 	var pluginContent map[string]string
 	if s.Plugins != nil {
 		pluginContent = s.Plugins.ContentFor(page.ID)
@@ -199,6 +201,7 @@ func (s *Server) buildPageData(page *pages.Page, consentState *consent.State) *t
 		},
 		UI:             s.resolveUI(page.Language),
 		Analytics:      analyticsData,
+		ErrorTracking:  errorTracking,
 		IsBot:          s.Bot.IsBot(""), // will be set per-request below
 		ContactEnabled: s.cfg.Contact.Enabled,
 		PluginContent:  pluginContent,

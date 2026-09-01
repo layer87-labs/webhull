@@ -60,6 +60,22 @@ templ Layout(data *PageData) {
 		if data.Analytics.PlausibleEnabled && data.ClientAnalyticsAllowed() {
 			<script defer data-domain={ data.Analytics.PlausibleDomain } data-api="/api/event" src="/js/script.js"></script>
 		}
+		// Error tracking is NOT behind analytics consent, unlike Plausible.
+		// The two do different things: Plausible observes the visitor, this
+		// observes the software. It is configured to send no IP address, no
+		// cookies and no request headers, so it collects nothing about the
+		// person — and a channel that only fires with consent would miss
+		// exactly the visitors whose browser broke before the banner loaded.
+		if data.ErrorTracking.Enabled {
+			<script src={ data.ErrorTracking.SDKURL } crossorigin="anonymous"></script>
+			<script
+				src={ data.AssetPath("/static/js/errortracking-init.js") }
+				data-dsn={ data.ErrorTracking.DSN }
+				data-environment={ data.ErrorTracking.Environment }
+				data-release={ data.ErrorTracking.Release }
+				data-sample-rate={ data.ErrorTracking.SampleRate }
+			></script>
+		}
 	</head>
 	<body>
 		@Header(data)
