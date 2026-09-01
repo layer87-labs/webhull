@@ -46,6 +46,12 @@ type PageData struct {
 	// Analytics holds analytics configuration for script injection.
 	Analytics AnalyticsData
 
+	// ErrorTracking holds the browser error-tracking configuration. Separate
+	// from Analytics because it is a different kind of signal with a
+	// different justification: analytics observes the visitor, error tracking
+	// observes the software.
+	ErrorTracking ErrorTrackingData
+
 	// UI holds global per-language UI strings (contact CTA, footer, etc.).
 	UI config.UIStringsConfig
 
@@ -74,6 +80,18 @@ type SiteData struct {
 	LogoPath      string
 	FaviconPath   string
 	ShowLangFlags bool
+}
+
+// ErrorTrackingData holds the values the browser SDK needs, passed as data
+// attributes rather than an inline snippet — webhull's own CSP does not allow
+// 'unsafe-inline' for script-src.
+type ErrorTrackingData struct {
+	Enabled     bool
+	DSN         string
+	SDKURL      string
+	Environment string
+	Release     string
+	SampleRate  string
 }
 
 // AnalyticsData holds analytics config for conditional script injection.

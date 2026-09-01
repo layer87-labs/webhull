@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
+	"github.com/layer87-labs/webhull/internal/app/templates"
 	"github.com/layer87-labs/webhull/internal/pkg/analytics"
 	"github.com/layer87-labs/webhull/internal/pkg/assets"
 	"github.com/layer87-labs/webhull/internal/pkg/config"
@@ -344,6 +346,16 @@ func (s *Server) setupMiddleware() {
 		secCfg.ExtraImgSrc = s.Plugins.ImgSrcHosts()
 	}
 
+	secCfg.HSTSIncludeSubdomains = s.cfg.Server.HSTS.IncludeSubdomains
+	secCfg.HSTSPreload = s.cfg.Server.HSTS.Preload
+
+	secCfg.CSPReportURI = s.cfg.Observability.CSP.ReportURI
+	secCfg.CSPReportOnly = s.cfg.Observability.CSP.ReportOnly
+	if et := s.cfg.Observability.ErrorTracking; et != nil && et.Enabled {
+		secCfg.ErrorTrackingOrigin = security.OriginOf(et.DSN)
+		secCfg.ErrorTrackingSDKOrigin = security.OriginOf(et.SDKURL)
+	}
+
 	s.router.Use(gin.Recovery())
 	s.router.Use(middleware.GzipMiddleware())
 	s.router.Use(middleware.LoggingMiddleware(s.logger, 1*time.Second))
@@ -351,6 +363,37 @@ func (s *Server) setupMiddleware() {
 	s.router.Use(security.SecurityHeadersMiddleware(secCfg))
 	s.router.Use(s.I18n.Middleware())
 	s.router.Use(s.Consent.Middleware())
+}
+
+// errorTrackingData turns the configuration into the values the layout needs.
+//
+// Returns a disabled struct whenever anything essential is missing, so a
+// half-configured site serves pages instead of failing: an absent error
+// tracker is a gap in observability, not a reason to take the site down.
+func (s *Server) errorTrackingData() templates.ErrorTrackingData {
+	et := s.cfg.Observability.ErrorTracking
+	if et == nil || !et.Enabled || et.DSN == "" || et.SDKURL == "" {
+		return templates.ErrorTrackingData{}
+	}
+
+	env := et.Environment
+	if env == "" {
+		env = s.cfg.Server.Environment
+	}
+
+	rate := et.SampleRate
+	if rate <= 0 || rate > 1 {
+		rate = 1
+	}
+
+	return templates.ErrorTrackingData{
+		Enabled:     true,
+		DSN:         et.DSN,
+		SDKURL:      et.SDKURL,
+		Environment: env,
+		Release:     et.Release,
+		SampleRate:  strconv.FormatFloat(rate, 'f', -1, 64),
+	}
 }
 
 // setupRoutes registers all routes.
