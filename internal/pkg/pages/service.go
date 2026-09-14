@@ -2,6 +2,7 @@ package pages
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/layer87-labs/webhull/internal/pkg/config"
 	"github.com/layer87-labs/webhull/internal/pkg/i18n"
@@ -50,6 +51,21 @@ func NewService(pages []config.PageConfig, languages []string) (*Service, error)
 			i18nCfg, ok := pageCfg.I18n[lang]
 			if !ok {
 				return nil, fmt.Errorf("page %q missing i18n for language %q", pageCfg.ID, lang)
+			}
+
+			if err := ValidateSlug(i18nCfg.Slug); err != nil {
+				return nil, fmt.Errorf("page %q (%s): invalid slug %q: %w", pageCfg.ID, lang, i18nCfg.Slug, err)
+			}
+			if i18nCfg.Slug == "" && pageCfg.ID != "home" {
+				return nil, fmt.Errorf("page %q (%s): empty slug is only allowed for id \"home\" (single-page mode)", pageCfg.ID, lang)
+			}
+
+			// The slug index is global — the URL carries no language prefix —
+			// so a slug must be unique across ALL languages, not just within one.
+			// Root pages ("") are keyed per language and cannot collide here.
+			if existing, dup := svc.slugIndex[i18nCfg.Slug]; dup && i18nCfg.Slug != "" {
+				return nil, fmt.Errorf("duplicate slug %q: pages %q (%s) and %q (%s) — slugs must be unique across all languages",
+					i18nCfg.Slug, existing.ID, existing.Language, pageCfg.ID, lang)
 			}
 
 			page := &Page{
@@ -148,6 +164,39 @@ func (s *Service) Slugs() []string {
 		slugs = append(slugs, slug)
 	}
 	return slugs
+}
+
+// ValidateSlug checks that a slug can be registered as a route.
+//
+// Slugs may contain "/" to form nested paths ("produkte/desk" → /produkte/desk).
+// They must not start or end with a slash, contain whitespace, a query string
+// or fragment, or empty / dot segments. The empty slug (root page) is valid
+// here; whether a page may use it is decided by the caller.
+func ValidateSlug(slug string) error {
+	if slug == "" {
+		return nil
+	}
+	if strings.ContainsAny(slug, " \t\r\n") {
+		return fmt.Errorf("must not contain whitespace")
+	}
+	if strings.ContainsAny(slug, "?#") {
+		return fmt.Errorf("must not contain \"?\" or \"#\"")
+	}
+	if strings.HasPrefix(slug, "/") {
+		return fmt.Errorf("must not start with \"/\"")
+	}
+	if strings.HasSuffix(slug, "/") {
+		return fmt.Errorf("must not end with \"/\"")
+	}
+	for _, seg := range strings.Split(slug, "/") {
+		switch seg {
+		case "":
+			return fmt.Errorf("must not contain empty path segments")
+		case ".", "..":
+			return fmt.Errorf("must not contain %q segments", seg)
+		}
+	}
+	return nil
 }
 
 // convertSections converts config.SectionConfig slice to domain Section slice.

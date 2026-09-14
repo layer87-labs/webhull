@@ -1,6 +1,8 @@
 package navigation
 
 import (
+	"strings"
+
 	"github.com/layer87-labs/webhull/internal/pkg/config"
 	"github.com/layer87-labs/webhull/internal/pkg/i18n"
 )
@@ -76,13 +78,21 @@ func (s *Service) resolveItems(cfgItems []config.NavItemConfig, currentSlug stri
 
 // isActive checks if a nav item matches the current slug.
 func isActive(cfg config.NavItemConfig, currentSlug string) bool {
-	if cfg.Slug != "" {
-		return cfg.Slug == currentSlug
+	target := cfg.Slug
+	if target == "" {
+		// Fallback: compare URL path (strip leading /)
+		target = strings.TrimPrefix(cfg.URL, "/")
 	}
-	// Fallback: compare URL path (strip leading /)
-	url := cfg.URL
-	if len(url) > 0 && url[0] == '/' {
-		url = url[1:]
+	return matchesSlug(target, currentSlug)
+}
+
+// matchesSlug reports whether currentSlug is the target itself or a nested
+// page beneath it. The comparison works on path segments: "produkte" matches
+// "produkte" and "produkte/desk", but not "produkte-alt". An empty target
+// only matches the root page.
+func matchesSlug(target, currentSlug string) bool {
+	if target == "" {
+		return currentSlug == ""
 	}
-	return url == currentSlug
+	return currentSlug == target || strings.HasPrefix(currentSlug, target+"/")
 }

@@ -334,6 +334,11 @@ func mergePages(cfg *SiteConfig, data []byte) error {
 		cfg.Pages = overlay.Pages
 	}
 
+	// Redirects — site structure, so the pages file owns them.
+	if len(overlay.Redirects) > 0 {
+		cfg.Redirects = overlay.Redirects
+	}
+
 	// Consent i18n texts — pages file is authoritative for user-facing copy.
 	// The operational config (config.yaml) owns enabled/categories; pages.yaml owns i18n.
 	// If pages.yaml defines consent fully (enabled + categories), it takes precedence

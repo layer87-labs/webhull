@@ -28,6 +28,7 @@ import (
 	"github.com/layer87-labs/webhull/internal/pkg/navigation"
 	"github.com/layer87-labs/webhull/internal/pkg/pages"
 	"github.com/layer87-labs/webhull/internal/pkg/plugin"
+	"github.com/layer87-labs/webhull/internal/pkg/redirects"
 	"github.com/layer87-labs/webhull/internal/pkg/security"
 	"github.com/layer87-labs/webhull/internal/pkg/seo"
 	"github.com/layer87-labs/webhull/internal/pkg/staticassets"
@@ -45,6 +46,7 @@ type Server struct {
 	I18n       *i18n.Service
 	Pages      *pages.Service
 	Navigation *navigation.Service
+	Redirects  *redirects.Service
 	Forms      *forms.Service
 	Consent    *consent.Service
 	Analytics  *analytics.Service
@@ -153,6 +155,13 @@ func (s *Server) initServices() error {
 	// Navigation
 	s.Navigation = navigation.NewService(s.cfg.Navigation)
 
+	// Redirects — validated against the final slug set and the built-in
+	// routes so a misconfigured redirect fails at startup, not in production.
+	s.Redirects, err = redirects.NewService(s.cfg.Redirects, reservedPaths, s.Pages.Slugs())
+	if err != nil {
+		return fmt.Errorf("redirects: %w", err)
+	}
+
 	// Consent
 	s.Consent = consent.NewService(s.cfg.Consent)
 
@@ -238,6 +247,20 @@ func (s *Server) initServices() error {
 	}
 
 	return nil
+}
+
+// reservedPaths are the paths owned by built-in routes. A configured redirect
+// may neither equal one of them nor live beneath one — keep this list in sync
+// with setupRoutes.
+var reservedPaths = []string{
+	"/static",
+	"/api",
+	"/health",
+	"/sitemap.xml",
+	"/robots.txt",
+	"/gate",
+	"/arcon",
+	"/js/script.js",
 }
 
 // mergeContentPages merges content-loaded pages into the base slice (from pages.yaml).
@@ -480,6 +503,20 @@ func (s *Server) setupRoutes() {
 
 	// Consent update endpoint
 	protected.POST("/api/consent", s.handleConsentUpdate())
+
+	// Redirects — registered inside the protected group on purpose: on a
+	// gated site the Location header of a public redirect would leak the
+	// site's structure to anyone probing old URLs. A gated site is not
+	// indexed anyway, so nothing is lost by making crawlers log in first.
+	// Both spellings are registered so the trailing-slash variant answers
+	// with the final target directly instead of a 301 hop to the bare path.
+	for _, rule := range s.Redirects.Rules() {
+		h := s.handleRedirect(rule)
+		protected.GET(rule.From, h)
+		protected.HEAD(rule.From, h)
+		protected.GET(rule.From+"/", h)
+		protected.HEAD(rule.From+"/", h)
+	}
 
 	// 404 handler
 	s.router.NoRoute(s.handleNotFound())

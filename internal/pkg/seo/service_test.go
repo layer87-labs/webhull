@@ -1,9 +1,13 @@
 package seo
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/gin-gonic/gin"
 
 	"github.com/layer87-labs/webhull/internal/pkg/config"
 	"github.com/layer87-labs/webhull/internal/pkg/i18n"
@@ -360,5 +364,67 @@ func TestLanguageSwitchLinks(t *testing.T) {
 				t.Errorf("EN URL = %q, want '/contact'", link.URL)
 			}
 		}
+	}
+}
+
+func TestServeSitemap_NestedSlug(t *testing.T) {
+	svc := testSEOService()
+	nested := &pages.Page{
+		ID:       "product-desk",
+		Template: "default",
+		Language: i18n.LangDE,
+		Slug:     "produkte/desk",
+		SEO:      pages.PageSEO{Priority: 0.6, ChangeFreq: "monthly"},
+		Alternates: map[i18n.Language]string{
+			i18n.LangDE: "produkte/desk",
+			i18n.LangEN: "products/desk",
+		},
+	}
+	nestedEN := *nested
+	nestedEN.Language = i18n.LangEN
+	nestedEN.Slug = "products/desk"
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodGet, "/sitemap.xml", nil)
+	svc.ServeSitemap([]*pages.Page{nested, &nestedEN})(c)
+
+	body := rec.Body.String()
+	for _, want := range []string{
+		"<loc>https://example.com/produkte/desk</loc>",
+		"<loc>https://example.com/products/desk</loc>",
+		`hreflang="de" href="https://example.com/produkte/desk"`,
+		`hreflang="en" href="https://example.com/products/desk"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("sitemap should contain %q", want)
+		}
+	}
+}
+
+func TestBuildMetaTags_NestedSlug(t *testing.T) {
+	svc := testSEOService()
+	page := testPage()
+	page.Slug = "produkte/desk"
+	page.Alternates = map[i18n.Language]string{
+		i18n.LangDE: "produkte/desk",
+		i18n.LangEN: "products/desk",
+	}
+
+	meta := svc.BuildMetaTags(page)
+	if meta.CanonicalURL != "https://example.com/produkte/desk" {
+		t.Errorf("canonical = %q", meta.CanonicalURL)
+	}
+	var sawEN, sawDefault bool
+	for _, link := range meta.Hreflang {
+		if link.Lang == "en" && link.Href == "https://example.com/products/desk" {
+			sawEN = true
+		}
+		if link.Lang == "x-default" && link.Href == "https://example.com/produkte/desk" {
+			sawDefault = true
+		}
+	}
+	if !sawEN || !sawDefault {
+		t.Errorf("hreflang links incomplete: %+v", meta.Hreflang)
 	}
 }
