@@ -64,36 +64,38 @@ templ SinglePage(data *templates.PageData) {
 				<div class="hero-bg-gradient"></div>
 			</section>
 		}
-		// Typed sections mode: render each section in declaration order,
-		// then append the webhull contact form at #contact if enabled.
-		if len(data.Page.Sections) > 0 {
-			for _, s := range data.Page.Sections {
-				<section class={ sectionClass(s.Type, s.AltBg) } { sectionIDAttr(s.ID)... }>
-					<div class="container">
-						if s.Title != "" {
-							<div class="section-header">
-								<h2 class="section-title">
-									@templ.Raw(s.Title)
-								</h2>
+		<main id="main-content">
+			// Typed sections mode: render each section in declaration order,
+			// then append the webhull contact form at #contact if enabled.
+			if len(data.Page.Sections) > 0 {
+				for _, s := range data.Page.Sections {
+					<section class={ sectionClass(s.Type, s.AltBg) } { sectionIDAttr(s.ID)... }>
+						<div class="container">
+							if s.Title != "" {
+								<div class="section-header">
+									<h2 class="section-title">
+										@templ.Raw(s.Title)
+									</h2>
+								</div>
+							}
+							<div class={ sectionInnerClass(s.Type) }>
+								@templ.Raw(s.Body)
 							</div>
-						}
-						<div class={ sectionInnerClass(s.Type) }>
-							@templ.Raw(s.Body)
 						</div>
-					</div>
-				</section>
+					</section>
+				}
+				if data.ContactEnabled {
+					<section class="content-section alt-bg" id="contact">
+						<div class="container">
+							@templates.ContactForm(data.ResolveContactTexts())
+						</div>
+					</section>
+				}
+			} else if data.HasContent("body") {
+				// Raw body fallback: the content file manages its own structure
+				// including any contact section. Nothing extra is appended.
+				@templ.Raw(data.Content("body"))
 			}
-			if data.ContactEnabled {
-				<section class="content-section alt-bg" id="contact">
-					<div class="container">
-						@templates.ContactForm(data.ResolveContactTexts())
-					</div>
-				</section>
-			}
-		} else if data.HasContent("body") {
-			// Raw body fallback: the content file manages its own structure
-			// including any contact section. Nothing extra is appended.
-			@templ.Raw(data.Content("body"))
-		}
+		</main>
 	}
 }

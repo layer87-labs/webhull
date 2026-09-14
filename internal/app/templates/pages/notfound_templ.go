@@ -44,7 +44,7 @@ func NotFoundPage(data *templates.PageData) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<main class=\"content-page\"><section class=\"hero hero-small\"><div class=\"container\"><div class=\"hero-content\"><h1 class=\"hero-title\">404<br><span class=\"gradient-text\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<main id=\"main-content\" class=\"content-page\"><section class=\"hero hero-small\"><div class=\"container\"><div class=\"hero-content\"><h1 class=\"hero-title\">404<br><span class=\"gradient-text\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

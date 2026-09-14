@@ -133,7 +133,7 @@ func ContactPage(data *templates.PageData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</div></div><div class=\"hero-bg-gradient\"></div></section> <main class=\"content-page\"><div class=\"container\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</div></div><div class=\"hero-bg-gradient\"></div></section> <main id=\"main-content\" class=\"content-page\"><div class=\"container\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

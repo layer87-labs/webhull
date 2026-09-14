@@ -5,7 +5,7 @@ import "github.com/layer87-labs/webhull/internal/app/templates"
 // NotFoundPage renders a 404 error page with navigation back to the start page.
 templ NotFoundPage(data *templates.PageData) {
 	@templates.Layout(data) {
-		<main class="content-page">
+		<main id="main-content" class="content-page">
 			<section class="hero hero-small">
 				<div class="container">
 					<div class="hero-content">

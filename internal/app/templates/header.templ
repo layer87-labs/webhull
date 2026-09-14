@@ -15,17 +15,17 @@ templ Header(data *PageData) {
 				}
 				<span class="logo-text">{ data.Site.Name }</span>
 			</a>
-			<button class="mobile-menu-toggle" aria-label="Menu">
+			<button type="button" class="mobile-menu-toggle" aria-label="Menu" aria-expanded="false" aria-controls="nav-links">
 				<span></span>
 				<span></span>
 				<span></span>
 			</button>
-			<ul class="nav-links">
+			<ul class="nav-links" id="nav-links">
 				for _, item := range data.Header.Items {
 					@headerNavItem(item)
 				}
 				<li>
-					<button class="theme-toggle" aria-label="Toggle theme" title="Toggle theme">
+					<button type="button" class="theme-toggle" aria-label={ data.ThemeToggleLabel() } title={ data.ThemeToggleLabel() }>
 						<svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 							<circle cx="12" cy="12" r="5"></circle>
 							<line x1="12" y1="1" x2="12" y2="3"></line>

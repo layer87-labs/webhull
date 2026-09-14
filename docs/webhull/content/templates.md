@@ -169,6 +169,28 @@ seo_noindex: true
 
 ---
 
+## The `<main>` landmark
+
+Every template wraps its page content in exactly one `<main id="main-content">` element,
+on **every** render path — typed sections, legacy named sections and plain body alike.
+The header, the footer and the consent banner stay outside it.
+
+This matters for two reasons:
+
+- Assistive technology uses the `main` landmark to jump straight to the page content.
+- The skip link rendered as the first focusable element of `<body>` targets
+  `#main-content`. Without the landmark the link would point nowhere.
+
+Switching a page from a plain body to typed section markers therefore no longer changes
+its landmark structure. The plain-body path additionally carries `class="content-page"`,
+which site stylesheets style against; the typed-section path carries no class, because
+each `<section>` brings its own.
+
+Content files must not emit a `<main>` element of their own — a second `main` in the
+document is invalid HTML and breaks landmark navigation. Use `<section>` or `<div>`.
+
+---
+
 ## Adding a custom template
 
 Custom templates are not currently supported as runtime plugins — the template set is compiled into the binary. To add a template:

@@ -44,25 +44,27 @@ templ DefaultPage(data *templates.PageData) {
 		// Body sections: flexible ordered rendering when typed section markers are used,
 		// otherwise fall back to a plain body block.
 		if len(data.Page.Sections) > 0 {
-			for _, s := range data.Page.Sections {
-				<section class={ sectionClass(s.Type, s.AltBg) } { sectionIDAttr(s.ID)... }>
-					<div class="container">
-						if s.Title != "" {
-							<div class="section-header">
-								<h2 class="section-title">
-									@templ.Raw(s.Title)
-								</h2>
+			<main id="main-content">
+				for _, s := range data.Page.Sections {
+					<section class={ sectionClass(s.Type, s.AltBg) } { sectionIDAttr(s.ID)... }>
+						<div class="container">
+							if s.Title != "" {
+								<div class="section-header">
+									<h2 class="section-title">
+										@templ.Raw(s.Title)
+									</h2>
+								</div>
+							}
+							<div class={ sectionInnerClass(s.Type) }>
+								@templ.Raw(s.Body)
 							</div>
-						}
-						<div class={ sectionInnerClass(s.Type) }>
-							@templ.Raw(s.Body)
 						</div>
-					</div>
-				</section>
-			}
+					</section>
+				}
+			</main>
 		} else {
 			// Plain body fallback.
-			<main class="content-page">
+			<main id="main-content" class="content-page">
 				<div class="container">
 					if data.HasContent("body") {
 						@templ.Raw(data.Content("body"))
