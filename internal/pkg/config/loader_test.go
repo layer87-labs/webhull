@@ -434,3 +434,35 @@ func TestLoad_StaticDir_AutoDetect_SkippedWhenExplicitlySet(t *testing.T) {
 		t.Errorf("explicit staticDir should win over auto-detect: want %q, got %q", staticDir, cfg.Server.StaticDir)
 	}
 }
+
+func TestLoad_RedirectsFromPagesFile(t *testing.T) {
+	// Redirects are site structure — they live in pages.yaml and must survive
+	// the split-config merge untouched (normalisation happens later, in the
+	// redirects package, once the slug set is known).
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "deploy", "config.yaml")
+	pagesPath := filepath.Join(dir, "site", "pages.yaml")
+	writeFile(t, configPath, minimalConfigYAML())
+	writeFile(t, pagesPath, minimalPagesYAML()+`
+redirects:
+  - from: "/souveraenitaet"
+    to: "/plattform"
+  - from: "/zielgruppen"
+    to: "/leistungen#zielgruppen"
+    status: 302
+`)
+
+	cfg, err := Load(configPath, pagesPath)
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+	if len(cfg.Redirects) != 2 {
+		t.Fatalf("got %d redirects, want 2", len(cfg.Redirects))
+	}
+	if cfg.Redirects[0].From != "/souveraenitaet" || cfg.Redirects[0].To != "/plattform" || cfg.Redirects[0].Status != 0 {
+		t.Errorf("redirects[0] = %+v, want from=/souveraenitaet to=/plattform status=0 (default applied later)", cfg.Redirects[0])
+	}
+	if cfg.Redirects[1].Status != 302 {
+		t.Errorf("redirects[1].Status = %d, want 302", cfg.Redirects[1].Status)
+	}
+}

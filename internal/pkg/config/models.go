@@ -29,6 +29,11 @@ type SiteConfig struct {
 	// (same resolution rule as ContentDir). Empty disables the plugin system.
 	PluginsDir string `yaml:"pluginsDir,omitempty"`
 
+	// Redirects map retired paths to their new location so that URLs which
+	// are already indexed or bookmarked keep working after a restructuring.
+	// Part of the site structure (pages.yaml), never operational config.
+	Redirects []RedirectConfig `yaml:"redirects,omitempty"`
+
 	// Contact form
 	Contact ContactConfig `yaml:"contact"`
 
@@ -232,6 +237,27 @@ type SectionConfig struct {
 	Title string `yaml:"title"`
 	// Body is raw HTML rendered as the section content.
 	Body string `yaml:"body"`
+}
+
+// RedirectConfig is a single path redirect declared in pages.yaml.
+//
+//	redirects:
+//	  - from: "/souveraenitaet"
+//	    to: "/plattform"
+//	  - from: "/zielgruppen"
+//	    to: "/leistungen#zielgruppen"
+//	    status: 302
+type RedirectConfig struct {
+	// From is the request path to redirect. A missing leading slash is added,
+	// a trailing slash is stripped; both spellings are served.
+	From string `yaml:"from"`
+
+	// To is the target: an internal path (a fragment is allowed) or an
+	// absolute http(s) URL.
+	To string `yaml:"to"`
+
+	// Status is the HTTP status code: 301 (default), 302, 307 or 308.
+	Status int `yaml:"status,omitempty"`
 }
 
 // PageSEOConfig holds SEO settings per page.

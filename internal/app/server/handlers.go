@@ -20,6 +20,7 @@ import (
 	"github.com/layer87-labs/webhull/internal/pkg/forms"
 	"github.com/layer87-labs/webhull/internal/pkg/i18n"
 	"github.com/layer87-labs/webhull/internal/pkg/pages"
+	"github.com/layer87-labs/webhull/internal/pkg/redirects"
 	"github.com/layer87-labs/webhull/internal/pkg/seo"
 )
 
@@ -143,6 +144,15 @@ func (s *Server) handlePage(slug string) gin.HandlerFunc {
 			c.Request.UserAgent(),
 			c.GetHeader("Accept-Language"),
 		)
+	}
+}
+
+// handleRedirect answers a retired path with the configured status and
+// Location. The query string is not carried over — a redirect maps one path
+// to another, nothing more.
+func (s *Server) handleRedirect(rule redirects.Rule) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Redirect(rule.Status, rule.To)
 	}
 }
 

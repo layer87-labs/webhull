@@ -116,6 +116,10 @@ webhull validates the config before starting. Common errors caught at startup:
 | `site.baseURL is required` | `site.baseURL` is empty |
 | `page "X" missing i18n for language "Y"` | Content file missing for a configured language |
 | `duplicate slug "X" for language "Y"` | Two pages share the same URL slug |
+| `duplicate slug "X": pages "A" (de) and "B" (en)` | The same slug in two languages — the URL has no language prefix, so slugs are global |
+| `page "X" (de): invalid slug "…"` | Slug starts or ends with `/`, or contains whitespace, `..`, `?`, `#` or an empty segment |
+| `redirects[N]: from "…" collides with an existing page slug` | A redirect would shadow a page — remove one of them |
+| `redirects[N]: from "…" collides with the built-in route "…"` | A redirect targets `/static`, `/api`, `/health`, `/sitemap.xml`, `/robots.txt`, `/gate`, `/arcon` or `/js/script.js` |
 | `gate.cookieSecret is required` | Gate enabled but no secret provided |
 
 Validate config without starting the server:

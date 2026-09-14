@@ -1,7 +1,7 @@
 # Operational Configuration — environment-specific overrides
 #
 # Mounted at runtime via Helm ConfigMap. Only set what differs from defaults.
-# Site structure (pages, navigation, consent, analytics, seo) lives in pages.yaml.
+# Site structure (pages, redirects, navigation, consent, analytics, seo) lives in pages.yaml.
 #
 # All ${VAR:default} references are expanded at runtime from environment variables.
 # All sections below have sane defaults — only override what you need.

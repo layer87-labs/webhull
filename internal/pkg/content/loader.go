@@ -63,11 +63,21 @@ func Load(contentDir string, languages []string, logger *zap.Logger) ([]config.P
 	var files []contentFile
 	for _, lang := range languages {
 		langDir := filepath.Join(contentDir, lang)
-		langFiles, err := parseDir(langDir, lang)
+		langFiles, skippedDirs, err := parseDir(langDir, lang)
 		if err != nil {
 			return nil, fmt.Errorf("language %q: %w", lang, err)
 		}
 		files = append(files, langFiles...)
+
+		// Language directories are scanned flat. A nested directory is not
+		// an error, but it is almost always a misunderstanding: its files are
+		// never served. Nested URLs come from the slug frontmatter key.
+		for _, name := range skippedDirs {
+			logger.Warn("content subdirectory ignored — language directories are scanned flat; "+
+				"use the frontmatter key slug (e.g. slug: produkte/desk) for nested URLs",
+				zap.String("lang", lang),
+				zap.String("dir", filepath.Join(langDir, name)))
+		}
 	}
 
 	if len(files) == 0 {
@@ -146,11 +156,12 @@ func Load(contentDir string, languages []string, logger *zap.Logger) ([]config.P
 
 			// Slug: frontmatter "slug" key wins over filename-derived slug.
 			// An explicit empty string means "serve at root /" (single-page mode).
+			// Slashes are allowed and produce nested routes: a flat file
+			// produkte-desk.html with slug "produkte/desk" is served at
+			// /produkte/desk. The slug's shape is validated by pages.NewService.
 			slug := f.Slug
-			if raw, ok := f.Meta["slug"]; ok {
-				if s, ok := raw.(string); ok {
-					slug = s
-				}
+			if raw, ok := f.Meta["slug"]; ok && raw != nil {
+				slug = stringMeta(f.Meta, "slug", f.Slug)
 			}
 
 			pageCfg.I18n[f.Lang] = config.PageI18nConfig{
@@ -186,14 +197,15 @@ func Load(contentDir string, languages []string, logger *zap.Logger) ([]config.P
 	return pages, nil
 }
 
-// parseDir reads all .html files from a language directory.
-func parseDir(dir, lang string) ([]contentFile, error) {
+// parseDir reads all .html files from a language directory. Subdirectories
+// are not descended into; their names are returned so the caller can warn.
+func parseDir(dir, lang string) ([]contentFile, []string, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, nil
+			return nil, nil, nil
 		}
-		return nil, fmt.Errorf("failed to read directory %s: %w", dir, err)
+		return nil, nil, fmt.Errorf("failed to read directory %s: %w", dir, err)
 	}
 
 	sort.Slice(entries, func(i, j int) bool {
@@ -201,8 +213,10 @@ func parseDir(dir, lang string) ([]contentFile, error) {
 	})
 
 	var files []contentFile
+	var skippedDirs []string
 	for _, entry := range entries {
 		if entry.IsDir() {
+			skippedDirs = append(skippedDirs, entry.Name())
 			continue
 		}
 		name := entry.Name()
@@ -213,12 +227,12 @@ func parseDir(dir, lang string) ([]contentFile, error) {
 		path := filepath.Join(dir, name)
 		cf, err := parseFile(path, lang)
 		if err != nil {
-			return nil, fmt.Errorf("file %s: %w", name, err)
+			return nil, nil, fmt.Errorf("file %s: %w", name, err)
 		}
 		files = append(files, cf)
 	}
 
-	return files, nil
+	return files, skippedDirs, nil
 }
 
 // parseFile reads an HTML file with optional YAML frontmatter.

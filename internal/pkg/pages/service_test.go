@@ -1,6 +1,7 @@
 package pages
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/layer87-labs/webhull/internal/pkg/config"
@@ -162,5 +163,182 @@ func TestNewService_DefaultSEOValues(t *testing.T) {
 	}
 	if page.SEO.ChangeFreq != "monthly" {
 		t.Errorf("default changefreq = %q, want \"monthly\"", page.SEO.ChangeFreq)
+	}
+}
+
+func TestNewService_NestedSlug(t *testing.T) {
+	pages := append(testPages(), config.PageConfig{
+		ID:       "product-desk",
+		Template: "default",
+		I18n: map[string]config.PageI18nConfig{
+			"de": {Slug: "produkte/desk", Title: "Desk"},
+			"en": {Slug: "products/desk", Title: "Desk"},
+		},
+	})
+	svc, err := NewService(pages, []string{"de", "en"})
+	if err != nil {
+		t.Fatalf("NewService failed: %v", err)
+	}
+
+	page := svc.Resolve("produkte/desk")
+	if page == nil {
+		t.Fatal("Resolve(\"produkte/desk\") returned nil")
+	}
+	if page.ID != "product-desk" || page.Language != i18n.LangDE {
+		t.Errorf("got ID=%q lang=%q, want product-desk/de", page.ID, page.Language)
+	}
+	if page.Alternates[i18n.LangEN] != "products/desk" {
+		t.Errorf("EN alternate = %q, want \"products/desk\"", page.Alternates[i18n.LangEN])
+	}
+	if svc.GetByID("product-desk", i18n.LangEN).Slug != "products/desk" {
+		t.Error("GetByID(product-desk, en) should resolve the nested EN slug")
+	}
+
+	found := false
+	for _, slug := range svc.Slugs() {
+		if slug == "produkte/desk" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("Slugs() should contain the nested slug for route registration")
+	}
+}
+
+func TestValidateSlug(t *testing.T) {
+	tests := []struct {
+		slug    string
+		wantErr string // empty = valid
+	}{
+		{"", ""},
+		{"start", ""},
+		{"ueber-uns", ""},
+		{"produkte/desk", ""},
+		{"a/b/c", ""},
+		{"/produkte/desk", `must not start with "/"`},
+		{"produkte/desk/", `must not end with "/"`},
+		{"produkte//desk", "empty path segments"},
+		{"produkte/../desk", `".."`},
+		{"produkte/./desk", `"."`},
+		{"..", `".."`},
+		{"produkte desk", "whitespace"},
+		{"produkte\tdesk", "whitespace"},
+		{"produkte?x=1", `"?"`},
+		{"produkte#top", `"#"`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.slug, func(t *testing.T) {
+			err := ValidateSlug(tt.slug)
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Errorf("ValidateSlug(%q) = %v, want nil", tt.slug, err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("ValidateSlug(%q) = nil, want error containing %q", tt.slug, tt.wantErr)
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("ValidateSlug(%q) = %q, want it to contain %q", tt.slug, err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestNewService_InvalidSlugRejected(t *testing.T) {
+	pages := append(testPages(), config.PageConfig{
+		ID:       "broken",
+		Template: "default",
+		I18n: map[string]config.PageI18nConfig{
+			"de": {Slug: "/produkte/desk", Title: "Desk"},
+			"en": {Slug: "products/desk", Title: "Desk"},
+		},
+	})
+	_, err := NewService(pages, []string{"de", "en"})
+	if err == nil {
+		t.Fatal("expected error for slug with leading slash, got nil")
+	}
+	for _, want := range []string{`page "broken"`, "(de)", `"/produkte/desk"`} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error = %q, want it to contain %q", err.Error(), want)
+		}
+	}
+}
+
+func TestNewService_DuplicateSlugAcrossLanguages(t *testing.T) {
+	// The URL carries no language prefix, so "desk" in DE and "desk" in EN
+	// would fight over the same route. That must fail at startup.
+	pages := append(testPages(), config.PageConfig{
+		ID:       "desk",
+		Template: "default",
+		I18n: map[string]config.PageI18nConfig{
+			"de": {Slug: "desk", Title: "Desk"},
+			"en": {Slug: "desk", Title: "Desk"},
+		},
+	})
+	_, err := NewService(pages, []string{"de", "en"})
+	if err == nil {
+		t.Fatal("expected error for duplicate slug across languages, got nil")
+	}
+	if !strings.Contains(err.Error(), `duplicate slug "desk"`) {
+		t.Errorf("error = %q, want it to mention the duplicate slug", err.Error())
+	}
+}
+
+func TestNewService_DuplicateSlugWithinLanguage(t *testing.T) {
+	pages := append(testPages(), config.PageConfig{
+		ID:       "other",
+		Template: "default",
+		I18n: map[string]config.PageI18nConfig{
+			"de": {Slug: "kontakt", Title: "Noch ein Kontakt"},
+			"en": {Slug: "other", Title: "Other"},
+		},
+	})
+	_, err := NewService(pages, []string{"de", "en"})
+	if err == nil {
+		t.Fatal("expected error for duplicate slug within a language, got nil")
+	}
+	for _, want := range []string{`duplicate slug "kontakt"`, `"contact" (de)`, `"other" (de)`} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error = %q, want it to contain %q", err.Error(), want)
+		}
+	}
+}
+
+func TestNewService_EmptySlugOnlyForHome(t *testing.T) {
+	pages := []config.PageConfig{
+		{
+			ID:       "home",
+			Template: "single",
+			I18n: map[string]config.PageI18nConfig{
+				"de": {Slug: "", Title: "Start"},
+				"en": {Slug: "", Title: "Home"},
+			},
+		},
+		{
+			ID:       "about",
+			Template: "default",
+			I18n: map[string]config.PageI18nConfig{
+				"de": {Slug: "", Title: "Über uns"},
+				"en": {Slug: "about", Title: "About"},
+			},
+		},
+	}
+	_, err := NewService(pages, []string{"de", "en"})
+	if err == nil {
+		t.Fatal("expected error for empty slug on non-home page, got nil")
+	}
+	if !strings.Contains(err.Error(), `page "about" (de)`) {
+		t.Errorf("error = %q, want it to name the page", err.Error())
+	}
+
+	// Two root pages (one per language) are fine — that is single-page mode.
+	svc, err := NewService(pages[:1], []string{"de", "en"})
+	if err != nil {
+		t.Fatalf("single-page mode should be valid, got %v", err)
+	}
+	if !svc.HasRootPages() {
+		t.Error("expected single-page mode")
 	}
 }

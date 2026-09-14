@@ -146,3 +146,65 @@ func TestLoad_EmptyDir(t *testing.T) {
 		t.Error("expected nil for empty contentDir")
 	}
 }
+
+func TestLoad_SlugFrontmatterWithSlash(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "de"), 0o755)
+
+	os.WriteFile(filepath.Join(dir, "de", "start.html"), []byte("---\nid: home\ntemplate: home\ntitle: \"Start\"\n---\n<p>start</p>\n"), 0o644)
+	// Flat file, nested URL: the slug key overrides the filename-derived slug.
+	os.WriteFile(filepath.Join(dir, "de", "produkte-desk.html"), []byte("---\nid: product-desk\ntemplate: default\ntitle: \"Desk\"\nslug: produkte/desk\n---\n<p>desk</p>\n"), 0o644)
+
+	pages, err := Load(dir, []string{"de"}, zap.NewNop())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var got string
+	for _, p := range pages {
+		if p.ID == "product-desk" {
+			got = p.I18n["de"].Slug
+			if _, leaked := p.I18n["de"].Content["slug"]; leaked {
+				t.Error("slug is a reserved key and must not leak into the content map")
+			}
+		}
+	}
+	if got != "produkte/desk" {
+		t.Errorf("slug = %q, want \"produkte/desk\"", got)
+	}
+}
+
+func TestLoad_SlugFrontmatterNullKeepsFilename(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "de"), 0o755)
+	os.WriteFile(filepath.Join(dir, "de", "start.html"), []byte("---\nid: home\ntemplate: home\ntitle: \"Start\"\nslug:\n---\n<p>start</p>\n"), 0o644)
+
+	pages, err := Load(dir, []string{"de"}, zap.NewNop())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pages[0].I18n["de"].Slug != "start" {
+		t.Errorf("slug = %q, want filename-derived \"start\" for a null slug key", pages[0].I18n["de"].Slug)
+	}
+}
+
+func TestLoad_SubdirectoryIgnored(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "de", "produkte"), 0o755)
+
+	os.WriteFile(filepath.Join(dir, "de", "start.html"), []byte("---\nid: home\ntemplate: home\ntitle: \"Start\"\n---\n<p>start</p>\n"), 0o644)
+	// A file inside a subdirectory of a language directory is never loaded —
+	// nested URLs come from the slug key, not from the directory tree.
+	os.WriteFile(filepath.Join(dir, "de", "produkte", "desk.html"), []byte("---\nid: desk\ntemplate: default\ntitle: \"Desk\"\n---\n<p>desk</p>\n"), 0o644)
+
+	pages, err := Load(dir, []string{"de"}, zap.NewNop())
+	if err != nil {
+		t.Fatalf("a subdirectory must not fail loading: %v", err)
+	}
+	if len(pages) != 1 {
+		t.Fatalf("expected 1 page (subdirectory ignored), got %d", len(pages))
+	}
+	if pages[0].ID != "home" {
+		t.Errorf("loaded page = %q, want home", pages[0].ID)
+	}
+}

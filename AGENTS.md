@@ -157,13 +157,20 @@ used in `examples/multi-page/site.yaml`.
 
 ## Content loading model
 
-Content files live in `{contentDir}/{lang}/{slug}.html`. The slug is the filename without `.html`.
+Content files live in `{contentDir}/{lang}/{slug}.html`. The slug is the filename without `.html`
+unless the frontmatter sets `slug`. Language directories are scanned flat — nested URLs
+(`/produkte/desk`) come from `slug: produkte/desk` in a flat file, never from subdirectories.
+Slugs are unique across all languages (no language prefix in the URL).
+
+Path redirects (`redirects:` in pages.yaml, see `internal/pkg/redirects`) are validated at
+startup against the slug set and the built-in routes, and registered inside the gate group.
 
 ### Frontmatter (YAML between `---` delimiters)
 
 ```html
 ---
 id: products             # Unique — same across ALL language variants (required)
+slug: produkte/desk      # Optional: URL override, "/" allowed for nested paths (default: filename)
 template: default        # default | home | contact | legal (required)
 title: "Produkte"        # Page title (required)
 description: "..."       # Meta description (required)

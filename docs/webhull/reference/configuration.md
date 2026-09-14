@@ -59,6 +59,47 @@ Path to the directory containing HTML content files, relative to the config file
 
 ---
 
+## `redirects` — Path redirects
+
+```yaml
+redirects:
+  - from: "/souveraenitaet"
+    to: "/plattform"
+  - from: "/zielgruppen"
+    to: "/leistungen#zielgruppen"
+    status: 302
+  - from: "/blog"
+    to: "https://blog.example.com/"
+```
+
+Redirects keep URLs alive that are already indexed or bookmarked after a page has been renamed, merged or moved. They are part of the site structure and belong in `pages.yaml` (or the monolithic `site.yaml`) — not in the operational `config.yaml`.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `from` | string | — | **Required.** Request path to redirect. Matched exactly; a missing leading slash is added, a trailing slash is stripped. Both `/alt` and `/alt/` answer with the redirect. |
+| `to` | string | — | **Required.** Target: an internal path (a fragment such as `#zielgruppen` is allowed) or an absolute `http(s)://` URL. A missing leading slash on an internal path is added. |
+| `status` | int | `301` | HTTP status code. Allowed: `301`, `302`, `307`, `308`. |
+
+**Validation at startup** — the server refuses to start when a redirect:
+
+- has an empty `from` or `to`;
+- uses `/` (the site root) as `from`;
+- contains whitespace, a query string, a fragment, an empty segment (`//`) or a `.`/`..` segment in `from`;
+- points `to` itself, a protocol-relative URL (`//host/…`), a bare fragment (`#top`), or a non-`http(s)` scheme;
+- uses a status code other than 301, 302, 307 or 308;
+- declares the same `from` twice;
+- collides with an existing page slug in **any** language (`/plattform` when a page has `slug: plattform`) — remove the page or the redirect;
+- collides with a built-in route: `/static`, `/api`, `/health`, `/sitemap.xml`, `/robots.txt`, `/gate`, `/arcon`, `/js/script.js` (exact match or anything beneath them).
+
+**Behaviour**
+
+- Only the path is matched: `/alt?utm=x` redirects too, but the query string is **not** carried over to the target.
+- Redirects never appear in `sitemap.xml`.
+- When the [site-wide gate](#gate--site-wide-access-gate) is enabled, redirects sit behind it like every page: an unauthenticated visitor is sent to `/gate` first. A public `Location` header would otherwise reveal the structure of a site that is meant to be hidden; a gated site is not indexed anyway, so nothing is lost.
+- A path beneath a redirect (`/alt/irgendwas`) is not redirected — there are no prefix or wildcard redirects.
+
+---
+
 ## `navigation` — Header and footer
 
 ```yaml
@@ -84,6 +125,8 @@ navigation:
 ```
 
 Navigation is defined per language. Each item has `title`, `url`, `slug` (for active-state matching), and optional `children`.
+
+**Active state** is resolved on path-segment boundaries: an item with `slug: produkte` is active on `/produkte` and on every nested page beneath it (`/produkte/desk`), but not on `/produkte-alt`. Items without a `slug` fall back to their `url` path with the same rule. A parent item is also active when any of its `children` is active. See [nested paths](../content/authoring.md#nested-paths) for the frontmatter side.
 
 ---
 

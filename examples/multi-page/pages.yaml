@@ -32,6 +32,20 @@ i18n:
 
 contentDir: "content"
 
+# ── Redirects ─────────────────────────────────────────────────────────────────
+# Retired paths that are still indexed or bookmarked. `from` is matched exactly
+# (with or without trailing slash); `to` is an internal path — a fragment is
+# allowed — or an absolute http(s) URL. `status` defaults to 301; 302, 307 and
+# 308 are accepted. A `from` that collides with a page slug or a built-in route
+# is a startup error. Redirects never appear in the sitemap.
+
+redirects:
+  - from: "/team"
+    to: "/ueber-uns"
+  - from: "/review"
+    to: "/services/architecture-review#scope"
+    status: 302
+
 # ── Navigation ────────────────────────────────────────────────────────────────
 
 navigation:
