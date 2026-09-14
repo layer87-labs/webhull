@@ -78,6 +78,10 @@ templ Layout(data *PageData) {
 		}
 	</head>
 	<body>
+		// Skip link — must stay the first focusable element in the document so
+		// keyboard and screen-reader users can bypass the navigation. Visible
+		// only while focused (see webhull.css).
+		<a href={ templ.SafeURL(data.SkipToContentHref()) } class="skip-link">{ data.SkipToContentLabel() }</a>
 		@Header(data)
 		{ children... }
 		@Footer(data)

@@ -317,3 +317,40 @@ func (pd *PageData) ConsentSettingsLabel() string {
 	}
 	return pd.ConsentConfig.Texts.Title
 }
+
+// MainContentID is the id of the <main> landmark rendered by every page
+// template. The skip link in the layout targets this id, so the two must
+// stay in sync.
+const MainContentID = "main-content"
+
+// SkipToContentLabel returns the label of the keyboard skip link.
+// A non-empty ui.skipToContentLabel from the site config wins; otherwise the
+// built-in default for the current page language is used, so existing sites
+// get a working skip link without touching their configuration.
+func (pd *PageData) SkipToContentLabel() string {
+	if pd.UI.SkipToContentLabel != "" {
+		return pd.UI.SkipToContentLabel
+	}
+	if pd.Language() == i18n.LangEN {
+		return "Skip to main content"
+	}
+	return "Zum Hauptinhalt springen"
+}
+
+// SkipToContentHref returns the fragment link the skip link points at.
+func (pd *PageData) SkipToContentHref() string {
+	return "#" + MainContentID
+}
+
+// ThemeToggleLabel returns the accessible name of the light/dark theme toggle.
+// A non-empty ui.themeToggleLabel from the site config wins; otherwise the
+// built-in default for the current page language is used.
+func (pd *PageData) ThemeToggleLabel() string {
+	if pd.UI.ThemeToggleLabel != "" {
+		return pd.UI.ThemeToggleLabel
+	}
+	if pd.Language() == i18n.LangEN {
+		return "Toggle theme"
+	}
+	return "Design umschalten"
+}

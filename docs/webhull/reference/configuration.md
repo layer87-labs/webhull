@@ -143,6 +143,8 @@ ui:
     imprintLabel: "Imprint"
     privacyURL: "/privacy"
     privacyLabel: "Privacy"
+    skipToContentLabel: "Skip to main content"
+    themeToggleLabel: "Toggle theme"
     notFoundTitle: "Page not found"
     notFoundSubtitle: "The page you are looking for does not exist."
     notFoundButton: "Back to home"
@@ -167,6 +169,8 @@ ui:
 | `allRights` | "All rights reserved" text in the footer. |
 | `imprintURL` / `imprintLabel` | Imprint link in the footer. |
 | `privacyURL` / `privacyLabel` | Privacy policy link in the footer. |
+| `skipToContentLabel` | Label of the keyboard skip link that is the first focusable element on every page. Optional — defaults to "Zum Hauptinhalt springen" (de) / "Skip to main content" (en). |
+| `themeToggleLabel` | Accessible name (`aria-label` and `title`) of the light/dark theme toggle in the header. Optional — defaults to "Design umschalten" (de) / "Toggle theme" (en). |
 | `notFoundTitle` | H1 on the 404 page. |
 | `notFoundSubtitle` | Subtitle on the 404 page. |
 | `notFoundButton` | Back-to-home button label on the 404 page. |

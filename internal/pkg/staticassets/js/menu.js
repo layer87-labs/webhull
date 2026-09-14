@@ -21,9 +21,17 @@ document.addEventListener('DOMContentLoaded', function () {
   var navLinks = document.querySelector('.nav-links');
 
   if (mobileMenuToggle && navLinks) {
+    // Keep aria-expanded in sync with the visual state so assistive
+    // technology is told whether the menu is open.
+    var setExpanded = function (open) {
+      mobileMenuToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    };
+    setExpanded(navLinks.classList.contains('active'));
+
     mobileMenuToggle.addEventListener('click', function () {
       navLinks.classList.toggle('active');
       mobileMenuToggle.classList.toggle('active');
+      setExpanded(navLinks.classList.contains('active'));
     });
 
     // Close mobile menu when clicking outside
@@ -31,6 +39,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (!event.target.closest('.nav-container')) {
         navLinks.classList.remove('active');
         mobileMenuToggle.classList.remove('active');
+        setExpanded(false);
       }
     });
   }

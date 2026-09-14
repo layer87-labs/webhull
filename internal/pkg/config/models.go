@@ -149,9 +149,17 @@ type UIStringsConfig struct {
 	// The link is rendered whenever consent is enabled, so that an earlier
 	// decision can always be withdrawn (GDPR Art. 7(3)).
 	ConsentSettingsLabel string `yaml:"consentSettingsLabel,omitempty"`
-	NotFoundTitle        string `yaml:"notFoundTitle"`
-	NotFoundSubtitle     string `yaml:"notFoundSubtitle"`
-	NotFoundButton       string `yaml:"notFoundButton"`
+	// SkipToContentLabel overrides the label of the keyboard skip link that is
+	// rendered as the first focusable element of every page. When empty, the
+	// built-in DE/EN default is used — no site configuration is required.
+	SkipToContentLabel string `yaml:"skipToContentLabel,omitempty"`
+	// ThemeToggleLabel overrides the accessible name (aria-label and title) of
+	// the light/dark theme toggle in the header. When empty, the built-in DE/EN
+	// default is used.
+	ThemeToggleLabel string `yaml:"themeToggleLabel,omitempty"`
+	NotFoundTitle    string `yaml:"notFoundTitle"`
+	NotFoundSubtitle string `yaml:"notFoundSubtitle"`
+	NotFoundButton   string `yaml:"notFoundButton"`
 	// ContactForm holds optional per-language overrides for contact form labels and messages.
 	// Any field left empty falls back to the built-in DE/EN defaults.
 	ContactForm ContactFormConfig `yaml:"contactForm,omitempty"`

@@ -7,7 +7,7 @@ import "github.com/layer87-labs/webhull/internal/app/templates"
 // <section class="legal-page"><div class="container">...</div></section>).
 templ LegalPage(data *templates.PageData) {
 	@templates.Layout(data) {
-		<main>
+		<main id="main-content">
 			if data.HasContent("body") {
 				@templ.Raw(data.Content("body"))
 			}
