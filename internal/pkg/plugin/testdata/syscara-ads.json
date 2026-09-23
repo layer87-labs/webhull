@@ -1,0 +1,27 @@
+{
+  "501": {
+    "id": 501,
+    "condition": "USED",
+    "type": "Reisemobil",
+    "typeof": "Teilintegriert",
+    "model": {"producer": "Example Maker", "series": "Series", "model": "600", "model_add": "Chassis", "modelyear": 2022},
+    "date": {"registration": "2022-03-15", "purchase": "2025-01-01"},
+    "mileage": 32500,
+    "engine": {"kw": 103, "ps": 140, "fuel": "DIESEL", "gear": "MANUAL"},
+    "prices": {"offer": 45990, "vat": 19, "purchase": 31000, "b2b": 38000, "list": 61000},
+    "accounting": {"remarks": "internal"},
+    "user": {"seller": 1},
+    "store": {"company": "Example Dealer"},
+    "media": [{"id": 11, "group": "image", "type": "upload"}]
+  },
+  "502": {
+    "id": 502,
+    "condition": "NEW",
+    "type": "Wohnwagen",
+    "typeof": "Wohnwagen",
+    "model": {"producer": "Other Maker", "series": "Line", "model": "450"},
+    "mileage": 0,
+    "prices": {"vat": 19},
+    "media": []
+  }
+}

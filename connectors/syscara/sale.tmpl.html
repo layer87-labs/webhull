@@ -1,0 +1,101 @@
+<!--
+  Syscara sales inventory fragment.
+
+  Rendered server-side via html/template (auto-escaping) and injected via
+  webhull's plugin system — see plugin.yaml. Styling is class-only and
+  reuses the rentandtravel connector's .fleet-* classes, so a site that
+  already styles one gets the other for free. JS hooks use their own
+  sale- ids and data-sale, so both can live on one page.
+
+  Each card is a button carrying the listing's allowlisted data as JSON in
+  data-sale. Clicking it opens a shared <dialog> — gallery, key facts,
+  equipment — built entirely from that data, no extra request.
+
+  REQUIRED SETUP STEP: copy sale.js from this directory into the consuming
+  site's static assets so it resolves at /static/js/syscara-sale.js — see
+  README. An inline <script> here would be dropped by webhull's CSP.
+-->
+<div class="fleet-grid">
+  {{range .Items}}
+  <article class="fleet-card">
+    <button type="button" class="fleet-card-link" data-sale='{{toJSON .}}' aria-haspopup="dialog">
+      {{with index . "images"}}{{with index0 . 0}}
+      <img class="fleet-card-img"
+           src="{{index . "file" | replace "/1500." "/500."}}"
+           alt="" loading="lazy" width="400" height="280">
+      {{end}}{{end}}
+
+      <span class="fleet-card-body">
+        {{if eq (printf "%v" (index . "condition")) "NEW"}}
+        <span class="fleet-card-labels"><span class="fleet-badge">Neufahrzeug</span></span>
+        {{end}}
+
+        <span class="fleet-card-title">{{index . "model.producer"}} {{index . "model.series"}} {{index . "model.model"}}</span>
+        <span class="fleet-card-group">{{index . "typeof"}}{{with index . "model.model_add"}} · {{.}}{{end}}</span>
+
+        <span class="fleet-card-specs">
+          {{with index . "date.registration"}}{{if eq (len .) 10}}<span>EZ {{slice . 5 7}}/{{slice . 0 4}}</span>{{end}}{{end}}
+          {{with index . "mileage"}}<span>{{formatNumber . 0 "." ","}} km</span>{{end}}
+          {{with index . "engine.ps"}}<span>{{.}} PS</span>{{end}}
+        </span>
+
+        <span class="fleet-card-price">
+          {{with index . "prices.offer"}}{{formatNumber . 0 "." ","}} €{{else}}Preis auf Anfrage{{end}}
+        </span>
+        <span class="fleet-card-cta">Details &amp; Galerie ansehen</span>
+      </span>
+    </button>
+  </article>
+  {{else}}
+  <p class="fleet-empty">Aktuell sind keine Fahrzeuge im Verkauf.</p>
+  {{end}}
+</div>
+
+<svg class="fleet-icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+  <symbol id="s-year" viewBox="0 0 24 24"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></symbol>
+  <symbol id="s-mileage" viewBox="0 0 24 24"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></symbol>
+  <symbol id="s-power" viewBox="0 0 24 24"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></symbol>
+  <symbol id="s-gear" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="12" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><path d="M6 8v8"/><path d="M12 8v4H6"/><path d="M18 8v4h-6"/></symbol>
+  <symbol id="s-beds" viewBox="0 0 24 24"><path d="M2 20v-8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8"/><path d="M4 10V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4"/><path d="M12 4v6"/><path d="M2 18h20"/></symbol>
+  <symbol id="s-seats" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+</svg>
+
+<dialog class="fleet-dialog" id="sale-detail-dialog" aria-labelledby="sale-dialog-title">
+  <div class="fleet-dialog-inner">
+    <button type="button" class="fleet-dialog-close" data-sale-close aria-label="Schließen">✕</button>
+
+    <div class="fleet-dialog-main">
+      <div class="fleet-dialog-gallery">
+        <img class="fleet-dialog-img" id="sale-dialog-img" alt="">
+        <div class="fleet-dialog-thumbs" id="sale-dialog-thumbs"></div>
+      </div>
+
+      <div class="fleet-dialog-head">
+        <div class="fleet-dialog-headtext">
+          <h3 id="sale-dialog-title"></h3>
+          <p class="fleet-dialog-group" id="sale-dialog-group"></p>
+        </div>
+      </div>
+
+      <p class="fleet-dialog-price" id="sale-dialog-price"></p>
+      <!-- Adjust href to the site's inquiry form. sale.js appends
+           ?fahrzeug=<title> (before any #fragment) so the form can prefill it. -->
+      <a class="btn btn--gold btn--lg" id="sale-dialog-inquire" href="/kontakt">
+        Fahrzeug anfragen
+      </a>
+    </div>
+
+    <div class="fleet-dialog-side">
+      <ul class="fleet-stats" id="sale-dialog-stats"></ul>
+      <ul class="fleet-card-features" id="sale-dialog-features"></ul>
+
+      <h4 class="fleet-dialog-subhead" id="sale-dialog-tech-head" hidden>Technische Daten</h4>
+      <dl class="fleet-dialog-tech" id="sale-dialog-tech"></dl>
+
+      <h4 class="fleet-dialog-subhead" id="sale-dialog-equipment-head" hidden>Ausstattung</h4>
+      <ul class="fleet-dialog-equipment" id="sale-dialog-equipment"></ul>
+    </div>
+  </div>
+</dialog>
+
+<script src="/static/js/syscara-sale.js" defer></script>

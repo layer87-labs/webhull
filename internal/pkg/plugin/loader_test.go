@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -355,5 +356,79 @@ func TestDiscover_FindsManifests(t *testing.T) {
 	}
 	if len(paths) != 2 {
 		t.Fatalf("expected 2 manifests, got %d: %v", len(paths), paths)
+	}
+}
+
+const basicAuthManifest = `
+apiVersion: webhull.layer87.de/v1
+kind: HTTPDataSource
+name: basicauth
+source:
+  url: https://api.example.com/v1/items
+  auth:
+    basic:
+      username: "${TEST_API_USER}"
+      password: %s
+select:
+  fields: [id]
+render:
+  template: fragment.tmpl.html
+  into:
+    page: p
+    contentKey: k
+`
+
+func TestLoadManifest_BasicAuthExpandedVerbatim(t *testing.T) {
+	dir := t.TempDir()
+	writeManifest(t, dir, "basicauth", fmt.Sprintf(basicAuthManifest, `"${TEST_API_PASSWORD}"`))
+	t.Setenv("TEST_API_USER", "user")
+	// Characters that would break the YAML if the password were expanded
+	// into the document before parsing.
+	t.Setenv("TEST_API_PASSWORD", `pa"ss: #word`)
+
+	m, err := loadManifest(filepath.Join(dir, "basicauth", "plugin.yaml"))
+	if err != nil {
+		t.Fatalf("loadManifest: %v", err)
+	}
+	if m.Source.Auth.Basic.Username != "user" || m.Source.Auth.Basic.Password != `pa"ss: #word` {
+		t.Errorf("auth = %+v, want user / pa\"ss: #word", m.Source.Auth.Basic)
+	}
+}
+
+func TestLoadManifest_LiteralBasicAuthRejected(t *testing.T) {
+	dir := t.TempDir()
+	writeManifest(t, dir, "basicauth", fmt.Sprintf(basicAuthManifest, `"hunter2"`))
+	if _, err := loadManifest(filepath.Join(dir, "basicauth", "plugin.yaml")); err == nil {
+		t.Fatal("expected literal basic auth password to be rejected")
+	}
+}
+
+func TestLoadManifest_EnrichRootWithoutAsRejected(t *testing.T) {
+	dir := t.TempDir()
+	writeManifest(t, dir, "enrichroot", `
+apiVersion: webhull.layer87.de/v1
+kind: HTTPDataSource
+name: enrichroot
+source:
+  url: https://api.example.com/v1/items
+select:
+  fields: [id, media]
+enrich:
+  source:
+    idField: "media[].id"
+    url: https://api.example.com/v1/media
+    query:
+      ids: "[{media[].id}]"
+  select:
+    root: data
+    fields: [url]
+render:
+  template: fragment.tmpl.html
+  into:
+    page: p
+    contentKey: k
+`)
+	if _, err := loadManifest(filepath.Join(dir, "enrichroot", "plugin.yaml")); err == nil {
+		t.Fatal("expected enrich.select.root without enrich.select.as to be rejected")
 	}
 }

@@ -74,10 +74,10 @@ func discover(dir string) ([]string, error) {
 
 // loadManifest reads, validates and env-expands a single plugin.yaml.
 //
-// It parses the file twice: once on the raw bytes (to validate that header
-// values are pure ${VAR} references, before any expansion could hide a
-// literal secret), and once on the env-expanded bytes (the manifest actually
-// used at runtime).
+// It parses the file twice: once without expansion (to validate that header
+// values and credentials are pure ${VAR} references, before any expansion
+// could hide a literal secret), and once with every scalar env-expanded
+// (the manifest actually used at runtime).
 func loadManifest(path string) (*Manifest, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
@@ -85,30 +85,62 @@ func loadManifest(path string) (*Manifest, error) {
 	}
 
 	var rawManifest Manifest
-	if err := yaml.Unmarshal(raw, &rawManifest); err != nil {
+	if err = yaml.Unmarshal(raw, &rawManifest); err != nil {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
-	if err := checkForLiteralSecrets(rawManifest.Source.Headers, rawManifest.Source.Query, "source", path); err != nil {
+	if err = checkForLiteralSecrets(rawManifest.Source.Headers, rawManifest.Source.Query, "source", path); err != nil {
+		return nil, err
+	}
+	if err = checkAuth(rawManifest.Source.Auth, "source", path); err != nil {
 		return nil, err
 	}
 	if rawManifest.Enrich != nil {
-		if err := checkForLiteralSecrets(rawManifest.Enrich.Source.Headers, rawManifest.Enrich.Source.Query, "enrich.source", path); err != nil {
+		if err = checkForLiteralSecrets(rawManifest.Enrich.Source.Headers, rawManifest.Enrich.Source.Query, "enrich.source", path); err != nil {
+			return nil, err
+		}
+		if err = checkAuth(rawManifest.Enrich.Source.Auth, "enrich.source", path); err != nil {
 			return nil, err
 		}
 	}
 
-	expanded := expandEnvSafe(string(raw))
-	var m Manifest
-	if err := yaml.Unmarshal([]byte(expanded), &m); err != nil {
+	m, err := decodeExpanded(raw)
+	if err != nil {
 		return nil, fmt.Errorf("parse %s (expanded): %w", path, err)
 	}
 	m.dir = filepath.Dir(path)
 
-	if err := validateManifest(&m, path); err != nil {
+	if err := validateManifest(m, path); err != nil {
 		return nil, err
 	}
-	applyManifestDefaults(&m)
+	applyManifestDefaults(m)
+	return m, nil
+}
+
+// decodeExpanded parses the manifest and expands ${VAR} references inside
+// each scalar value, not in the raw text: a value containing a quote, a
+// colon or "#" (a password, a token) then stays one value instead of
+// changing how the rest of the document parses.
+func decodeExpanded(raw []byte) (*Manifest, error) {
+	var root yaml.Node
+	if err := yaml.Unmarshal(raw, &root); err != nil {
+		return nil, err
+	}
+	expandScalars(&root)
+	var m Manifest
+	if err := root.Decode(&m); err != nil {
+		return nil, err
+	}
 	return &m, nil
+}
+
+func expandScalars(n *yaml.Node) {
+	if n.Kind == yaml.ScalarNode {
+		n.Value = expandEnvSafe(n.Value)
+		return
+	}
+	for _, c := range n.Content {
+		expandScalars(c)
+	}
 }
 
 // checkForLiteralSecrets rejects a manifest where a header value isn't
@@ -137,6 +169,26 @@ func checkForLiteralSecrets(headers, query map[string]string, prefix, path strin
 					"\"${VAR}\" or \"${VAR:default}\" — literal values are not allowed (would commit a secret), "+
 					"rename the parameter if it genuinely isn't one",
 				path, prefix, key,
+			)
+		}
+	}
+	return nil
+}
+
+// checkAuth requires every credential in an auth block to be exactly a
+// ${VAR} reference, and a basic block to carry both halves.
+func checkAuth(a *Auth, prefix, path string) error {
+	if a == nil {
+		return nil
+	}
+	if a.Basic == nil {
+		return fmt.Errorf("%s: %s.auth must set a scheme (only \"basic\" is supported)", path, prefix)
+	}
+	for field, val := range map[string]string{"username": a.Basic.Username, "password": a.Basic.Password} {
+		if !secretRefPattern.MatchString(val) {
+			return fmt.Errorf(
+				"%s: %s.auth.basic.%s must be exactly \"${VAR}\" or \"${VAR:default}\" — "+
+					"literal credentials are not allowed (would commit a secret)", path, prefix, field,
 			)
 		}
 	}
@@ -222,6 +274,10 @@ func validateEnrich(e *Enrich, path string) error {
 	}
 	if len(e.Select.Fields) == 0 {
 		return fmt.Errorf("%s: enrich.select.fields must list at least one field", path)
+	}
+	if e.Select.Root != "" && e.Select.As == "" {
+		return fmt.Errorf("%s: enrich.select.root requires enrich.select.as — "+
+			"a collection needs a key to be stored under on the item", path)
 	}
 	return nil
 }

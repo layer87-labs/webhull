@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -23,17 +24,13 @@ func enrichItems(ctx context.Context, client *http.Client, e *Enrich, items []It
 	var wg sync.WaitGroup
 
 	for i := range items {
-		idVal, ok := items[i][e.Source.IDField]
-		if !ok {
-			logger.Warn("enrich skipped: item missing id field",
-				zap.String("idField", e.Source.IDField))
+		idStr, err := enrichID(items[i], e.Source.IDField)
+		if err != nil {
+			logger.Warn("enrich skipped", zap.String("idField", e.Source.IDField), zap.Error(err))
 			continue
 		}
-		idStr, err := enrichIDString(idVal)
-		if err != nil {
-			logger.Warn("enrich skipped: id field is not a scalar",
-				zap.String("idField", e.Source.IDField), zap.Error(err))
-			continue
+		if idStr == "" {
+			continue // an empty list: nothing to look up
 		}
 
 		wg.Add(1)
@@ -68,11 +65,70 @@ func fetchEnrichOne(ctx context.Context, client *http.Client, e *Enrich, id stri
 		query[k] = strings.ReplaceAll(v, placeholder, id)
 	}
 
-	parsed, err := fetchURL(ctx, client, rawURL, query, e.Source.Headers)
+	raw, err := fetchURL(ctx, client, request{URL: rawURL, Query: query, Headers: e.Source.Headers, Auth: e.Source.Auth})
 	if err != nil {
 		return nil, err
 	}
-	return selectFields(parsed, e.Select.Fields), nil
+
+	if e.Select.As == "" {
+		var parsed interface{}
+		if err = json.Unmarshal(raw, &parsed); err != nil {
+			return nil, fmt.Errorf("parse enrich response: %w", err)
+		}
+		return selectFields(parsed, e.Select.Fields), nil
+	}
+
+	list, err := collectionAt(raw, e.Select.Root)
+	if err != nil {
+		return nil, fmt.Errorf("enrich: %w", err)
+	}
+	selected := make([]Item, 0, len(list))
+	for _, el := range list {
+		if obj, ok := el.(map[string]interface{}); ok {
+			selected = append(selected, selectFields(obj, e.Select.Fields))
+		}
+	}
+	return Item{e.Select.As: selected}, nil
+}
+
+// enrichID resolves an item's idField to the string substituted into the
+// enrich placeholder. "media[].id" joins a sub path of every element of the
+// list field "media" with commas, "tags[]" joins the elements themselves;
+// an empty list yields "". Any other idField is a plain scalar field.
+func enrichID(item Item, idField string) (string, error) {
+	base, sub, isList := strings.Cut(idField, "[]")
+	if !isList {
+		v, ok := item[idField]
+		if !ok {
+			return "", fmt.Errorf("item missing id field")
+		}
+		return enrichIDString(v)
+	}
+
+	v, ok := item[base]
+	if !ok {
+		return "", fmt.Errorf("item missing list field %q", base)
+	}
+	list, ok := v.([]interface{})
+	if !ok {
+		return "", fmt.Errorf("field %q is not a list", base)
+	}
+	sub = strings.TrimPrefix(sub, ".")
+	ids := make([]string, 0, len(list))
+	for _, el := range list {
+		if sub != "" {
+			var found bool
+			if el, found = getPath(el, sub); !found {
+				continue
+			}
+		}
+		s, err := enrichIDString(el)
+		if err != nil {
+			return "", err
+		}
+		ids = append(ids, s)
+	}
+	return strings.Join(ids, ","), nil
 }
 
 // enrichIDString converts a JSON-decoded id value (float64 or string) to
