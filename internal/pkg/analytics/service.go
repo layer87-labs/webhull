@@ -13,20 +13,39 @@ import (
 type Service struct {
 	providers []Provider
 	logger    *zap.Logger
+	isBot     func(userAgent string) bool
 }
 
 // NewService creates a new analytics service with the given providers.
-func NewService(logger *zap.Logger, providers ...Provider) *Service {
+//
+// isBot classifies a User-Agent as a non-human client (search-engine
+// crawler, uptime monitor, HTTP library, headless browser, ...). Both Track
+// and TrackServerSide consult it before dispatching to a provider, so that
+// neither the client-side proxy path nor the server-side fallback ever
+// counts a probe as a visitor. This is the seam that keeps analytics
+// decoupled from internal/pkg/security: the caller (internal/app/server)
+// wires security.BotDetector.IsBot in, analytics only depends on a plain
+// func. Passing nil disables the check.
+func NewService(logger *zap.Logger, isBot func(userAgent string) bool, providers ...Provider) *Service {
+	if isBot == nil {
+		isBot = func(string) bool { return false }
+	}
 	return &Service{
 		providers: providers,
 		logger:    logger,
+		isBot:     isBot,
 	}
 }
 
-// Track dispatches an event to all providers if analytics consent is given.
+// Track dispatches an event to all providers if analytics consent is given
+// and the request is not from a known bot or monitoring client.
 func (s *Service) Track(ctx context.Context, consentState *consent.State, event Event, ip, userAgent, acceptLang string) {
 	// Check analytics consent
 	if consentState != nil && !consentState.IsAllowed(consent.CategoryAnalytics) {
+		return
+	}
+
+	if s.isBot(userAgent) {
 		return
 	}
 
@@ -43,9 +62,17 @@ func (s *Service) Track(ctx context.Context, consentState *consent.State, event 
 // is not active (consent not given). This provides anonymous base analytics
 // without requiring consent, since no cookies or personal data are stored.
 // When consent IS given, the client-side JS handles tracking (deduplication).
+//
+// It also skips known bots and monitoring/HTTP clients (empty User-Agent
+// counts as a bot) — otherwise every health probe and uptime check would be
+// counted as a pageview, which in practice dwarfs real traffic.
 func (s *Service) TrackServerSide(consentState *consent.State, pageURL, ip, userAgent, acceptLang string) {
 	// Skip if analytics consent is given — client JS will track instead
 	if consentState != nil && consentState.IsAllowed(consent.CategoryAnalytics) {
+		return
+	}
+
+	if s.isBot(userAgent) {
 		return
 	}
 

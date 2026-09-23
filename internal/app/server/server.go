@@ -336,7 +336,7 @@ func (s *Server) initAnalytics() {
 		))
 	}
 
-	s.Analytics = analytics.NewService(s.logger, providers...)
+	s.Analytics = analytics.NewService(s.logger, s.Bot.IsBot, providers...)
 
 	// Client-side analytics is gated on the "analytics" consent category. If
 	// consent is on but that category does not exist, visitors have no way to
