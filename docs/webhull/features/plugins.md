@@ -46,12 +46,16 @@ source:
     station: "5619"
   headers:
     Authorization: "${RNT_TOKEN}"     # optional — must be exactly ${VAR} or ${VAR:default}
+  auth:                                # optional — HTTP Basic, see "Authentication"
+    basic:
+      username: "${API_USER}"
+      password: "${API_PASSWORD}"
   timeout: 8s                          # default 8s
   refreshInterval: 15m                 # default 15m, minimum 30s
   staleWhileError: 24h                 # default 24h
 
 select:
-  root: articles                       # dot path to the array in the response; empty = response is the array
+  root: articles                       # dot path to the collection in the response; empty = the response itself
   fields:                              # allowlist — nothing else reaches the template
     - id
     - make
@@ -69,6 +73,37 @@ csp:
     - https://cdn.example.com          # exact origins only — extends img-src
 ```
 
+### Collections: arrays and keyed objects
+
+`select.root` resolves to the collection of items. Two shapes are accepted:
+
+- an **array** of objects: `{"articles": [{...}, {...}]}`
+- an **object whose values are all objects**, as returned by APIs that key records by
+  id: `{"17": {...}, "42": {...}}`. Items keep the key order of the response.
+
+An object that mixes records with scalars or arrays (`{"items": [...], "total": 3}`) is
+a wrapper, not a collection; it's an error rather than an empty fragment, since it
+almost always means `root` points one level too high.
+
+### Authentication
+
+Header-based tokens go in `source.headers`. For HTTP Basic, use `source.auth.basic`
+instead of pre-encoding an `Authorization` header:
+
+```yaml
+source:
+  url: https://api.example.com/v1/items
+  auth:
+    basic:
+      username: "${API_USER}"
+      password: "${API_PASSWORD}"
+```
+
+Supply the values as environment variables, in Kubernetes typically via `secretKeyRef`
+from a Secret. `${VAR}` references are expanded inside each YAML value, after parsing, so
+a password containing quotes, colons or `#` can't change how the manifest parses.
+`enrich.source.auth` takes the same block; it isn't inherited from `source`.
+
 ### Security rules enforced at load time
 
 - **`select.fields` cannot be empty.** Deny by default — a plugin with no allowlist has
@@ -77,6 +112,8 @@ csp:
   value (or a value with anything else mixed in) is a startup error — the manifest is the
   one place a secret could accidentally get committed, so partial matches are rejected,
   not just obvious ones. `enrich.source.headers` follows the same rule.
+- **`source.auth.basic.username` and `.password` must be exactly `${VAR}` or
+  `${VAR:default}`**, same as headers. `enrich.source.auth` follows the same rule.
 - **`source.query` values under a credential-shaped key are held to the same rule.** Many
   mainstream APIs (Google, OpenWeatherMap, ...) pass their API key via the query string,
   not a header — `?key=...`, `?appid=...`, `?api_key=...`. Any query parameter whose name
@@ -119,7 +156,15 @@ type renderData struct {
 {{end}}
 ```
 
-Small helpers are available: `hasSuffix`, `contains`, `default`, and `toJSON` — serializes
+Small helpers are available: `hasSuffix`, `contains`, `default`, `replace`,
+`formatNumber` and `toJSON`.
+
+- `replace OLD NEW S` swaps every occurrence, with the argument order that suits
+  pipelines: `{{index . "image" | replace "large" "small"}}`.
+- `formatNumber V DECIMALS THOUSANDS_SEP DECIMAL_SEP` formats a JSON number or numeric
+  string: `{{formatNumber (index . "price") 0 "." ","}}` turns `67270` into `67.270`.
+  A value that isn't a number is returned unchanged.
+- `toJSON` — serializes
 a value (typically the current item, `{{toJSON .}}`) to a JSON string, for templates that
 hand item data to client-side JS (e.g. a `data-*` attribute a gallery/detail widget reads).
 It returns a plain string, so `html/template`'s contextual auto-escaping still applies
@@ -193,7 +238,38 @@ enrich:
 
 The `{<idField>}` placeholder must appear in `source.url` or at least one `source.query`
 value — a manifest where it's missing is rejected at load time (every item would
-otherwise fetch the identical URL). `source.headers` follows the same `${VAR}`-only rule
+otherwise fetch the identical URL).
+
+### Enrich from a list field into a collection
+
+Some details can only be resolved in one batch request over ids that an item holds as a
+list. A typical case is images the list endpoint only references by media id. Two
+additions cover this:
+
+- `idField: media[].id` joins the `id` of every element of the item's `media` list with
+  commas; `idField: tags[]` joins the elements themselves. An item whose list is empty
+  is skipped. The list field itself must be in `select.fields`.
+- `enrich.select.as` stores the response's collection (at `enrich.select.root`, with
+  the same array/keyed-object rules as `select.root`) as a list on the item, under that
+  key, instead of merging fields flatly.
+
+```yaml
+select:
+  fields: [id, media]            # media: [{"id": 7}, {"id": 9}]
+enrich:
+  source:
+    idField: "media[].id"
+    url: https://api.example.com/v1/media
+    query:
+      ids: "[{media[].id}]"      # → ?ids=[7,9]
+  select:
+    as: images                   # → item["images"] = [{"url": ...}, {"url": ...}]
+    fields: [url]
+```
+
+```html
+{{range index . "images"}}<img src="{{index . "url"}}" alt="">{{end}}
+``` `source.headers` follows the same `${VAR}`-only rule
 as the base source. A single item's enrich fetch failing is logged and that item simply
 keeps its base fields — it does not blank out the rest of the list.
 

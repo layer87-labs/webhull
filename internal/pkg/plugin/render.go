@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -32,6 +33,12 @@ var funcMap = template.FuncMap{
 		}
 		return items[i]
 	},
+	// replace swaps every occurrence of old in s — e.g. an image size in a
+	// CDN URL. Argument order suits pipelines: {{.url | replace "1500" "sm"}}.
+	"replace": func(old, replacement, s string) string {
+		return strings.ReplaceAll(s, old, replacement)
+	},
+	"formatNumber": formatNumber,
 	// toJSON serializes a value (typically an Item) to a JSON string, for
 	// templates that need to hand an item's data to client-side JS — e.g. a
 	// data-* attribute consumed by a gallery/detail widget. Returns a plain
@@ -72,4 +79,50 @@ func renderHTML(tmpl *template.Template, items []Item) (string, error) {
 		return "", fmt.Errorf("execute render template: %w", err)
 	}
 	return b.String(), nil
+}
+
+// formatNumber renders a JSON number (or numeric string) with a fixed
+// number of decimals and the given separators, e.g.
+// {{formatNumber .price 0 "." ","}} turns 67270 into "67.270". A value
+// that is not a number is returned unchanged, so a template never fails
+// on an upstream field that is occasionally empty or textual.
+func formatNumber(v interface{}, decimals int, thousandsSep, decimalSep string) string {
+	var f float64
+	switch t := v.(type) {
+	case float64:
+		f = t
+	case int:
+		f = float64(t)
+	case string:
+		parsed, err := strconv.ParseFloat(strings.TrimSpace(t), 64)
+		if err != nil {
+			return t
+		}
+		f = parsed
+	default:
+		if v == nil {
+			return ""
+		}
+		return fmt.Sprint(v)
+	}
+
+	s := strconv.FormatFloat(f, 'f', decimals, 64)
+	sign := ""
+	if strings.HasPrefix(s, "-") {
+		sign, s = "-", s[1:]
+	}
+	intPart, frac, _ := strings.Cut(s, ".")
+
+	var b strings.Builder
+	for i, r := range intPart {
+		if i > 0 && (len(intPart)-i)%3 == 0 {
+			b.WriteString(thousandsSep)
+		}
+		b.WriteRune(r)
+	}
+	if frac != "" {
+		b.WriteString(decimalSep)
+		b.WriteString(frac)
+	}
+	return sign + b.String()
 }

@@ -69,3 +69,35 @@ func TestRenderHTML_ToJSON_RoundTripsInAttribute(t *testing.T) {
 		t.Fatalf("attribute did not round-trip to valid JSON: %q (from %q)", attr, out)
 	}
 }
+
+func TestFormatNumber(t *testing.T) {
+	cases := []struct {
+		v    interface{}
+		dec  int
+		want string
+	}{
+		{float64(67270), 0, "67.270"},
+		{float64(1234567.891), 2, "1.234.567,89"},
+		{float64(999), 0, "999"},
+		{float64(-15000), 0, "-15.000"},
+		{"2500", 0, "2.500"},
+		{"auf Anfrage", 0, "auf Anfrage"},
+		{nil, 0, ""},
+	}
+	for _, c := range cases {
+		if got := formatNumber(c.v, c.dec, ".", ","); got != c.want {
+			t.Errorf("formatNumber(%v, %d) = %q, want %q", c.v, c.dec, got, c.want)
+		}
+	}
+}
+
+func TestReplaceHelperInPipeline(t *testing.T) {
+	tmpl := template.Must(template.New("t").Funcs(funcMap).Parse(`{{range .Items}}{{index . "img" | replace "1500" "sm"}}{{end}}`))
+	got, err := renderHTML(tmpl, []Item{{"img": "https://cdn.example.com/ab/1500.jpg"}})
+	if err != nil {
+		t.Fatalf("renderHTML: %v", err)
+	}
+	if got != "https://cdn.example.com/ab/sm.jpg" {
+		t.Errorf("got %q", got)
+	}
+}

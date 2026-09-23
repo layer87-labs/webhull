@@ -52,14 +52,14 @@ func (in *instance) refreshOnce(ctx context.Context) {
 	fetchCtx, cancel := context.WithTimeout(ctx, in.manifest.Source.Timeout)
 	defer cancel()
 
-	parsed, err := fetch(fetchCtx, in.client, in.manifest.Source)
+	raw, err := fetch(fetchCtx, in.client, in.manifest.Source)
 	if err != nil {
 		in.logger.Warn("plugin fetch failed",
 			zap.Error(err))
 		return
 	}
 
-	items, err := selectItems(parsed, in.manifest.Select)
+	items, err := selectItems(raw, in.manifest.Select)
 	if err != nil {
 		in.logger.Warn("plugin select failed",
 			zap.Error(err))

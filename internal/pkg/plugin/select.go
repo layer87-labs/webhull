@@ -1,6 +1,8 @@
 package plugin
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"strings"
 )
@@ -11,35 +13,100 @@ import (
 // map[string]interface{}) — the render template decides how to use them.
 type Item map[string]interface{}
 
-// selectItems extracts the array at select.root from the parsed response,
+// selectItems extracts the collection at select.root from the raw response,
 // then applies the field allowlist to every element. Elements that are not
 // JSON objects are skipped. Never returns an error for a missing/absent
 // field — a manifest referencing a field the upstream doesn't always send
 // should still render the fields that are present.
-func selectItems(parsed interface{}, sel Select) ([]Item, error) {
-	root := parsed
-	if sel.Root != "" {
-		v, ok := getPath(parsed, sel.Root)
-		if !ok {
-			return nil, fmt.Errorf("select.root %q not found in response", sel.Root)
-		}
-		root = v
+func selectItems(raw []byte, sel Select) ([]Item, error) {
+	list, err := collectionAt(raw, sel.Root)
+	if err != nil {
+		return nil, err
 	}
-
-	list, ok := root.([]interface{})
-	if !ok {
-		return nil, fmt.Errorf("select.root %q does not resolve to an array (got %T)", sel.Root, root)
-	}
-
 	items := make([]Item, 0, len(list))
-	for _, raw := range list {
-		obj, ok := raw.(map[string]interface{})
+	for _, el := range list {
+		obj, ok := el.(map[string]interface{})
 		if !ok {
 			continue
 		}
 		items = append(items, selectFields(obj, sel.Fields))
 	}
 	return items, nil
+}
+
+// collectionAt resolves the dot path root in a raw JSON document and returns
+// the collection found there as a list. A collection is an array, or an
+// object whose values are all objects (records keyed by id); the latter is
+// returned in the key order of the document — the order the upstream chose,
+// which decoding into a Go map would lose.
+func collectionAt(raw []byte, root string) ([]interface{}, error) {
+	node := json.RawMessage(raw)
+	if root != "" {
+		for _, seg := range strings.Split(root, ".") {
+			var obj map[string]json.RawMessage
+			if err := json.Unmarshal(node, &obj); err != nil {
+				return nil, fmt.Errorf("select.root %q not found in response", root)
+			}
+			next, ok := obj[seg]
+			if !ok {
+				return nil, fmt.Errorf("select.root %q not found in response", root)
+			}
+			node = next
+		}
+	}
+
+	switch firstByte(node) {
+	case '[':
+		var list []interface{}
+		if err := json.Unmarshal(node, &list); err != nil {
+			return nil, fmt.Errorf("select.root %q: %w", root, err)
+		}
+		return list, nil
+	case '{':
+		list, err := orderedObjectValues(node)
+		if err != nil {
+			return nil, fmt.Errorf("select.root %q: %w", root, err)
+		}
+		return list, nil
+	default:
+		return nil, fmt.Errorf("select.root %q does not resolve to a collection (array or object of objects)", root)
+	}
+}
+
+// orderedObjectValues returns an object's values in document order. It
+// fails unless every value is itself an object: an object mixing records
+// with scalars or arrays is a wrapper ({"items": [...], "total": 3}) whose
+// root was configured one level too high, not a keyed collection, and
+// silently rendering nothing would hide that.
+func orderedObjectValues(raw []byte) ([]interface{}, error) {
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	if _, err := dec.Token(); err != nil { // opening '{'
+		return nil, err
+	}
+	var values []interface{}
+	for dec.More() {
+		key, err := dec.Token()
+		if err != nil {
+			return nil, err
+		}
+		var v interface{}
+		if err := dec.Decode(&v); err != nil {
+			return nil, err
+		}
+		if _, ok := v.(map[string]interface{}); !ok {
+			return nil, fmt.Errorf("does not resolve to a collection: value under key %q is not an object", key)
+		}
+		values = append(values, v)
+	}
+	return values, nil
+}
+
+func firstByte(raw []byte) byte {
+	trimmed := bytes.TrimLeft(raw, " \t\r\n")
+	if len(trimmed) == 0 {
+		return 0
+	}
+	return trimmed[0]
 }
 
 // selectFields extracts an allowlisted set of top-level (dot-path) fields
