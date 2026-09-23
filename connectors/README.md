@@ -15,6 +15,7 @@ real-world connectors with their own setup notes.
 | Connector | Source | Auth | Use case |
 |---|---|---|---|
 | [`rentandtravel/`](rentandtravel/) | rent and travel booking-engine API | none | Vehicle rental fleet listings |
+| [`syscara/`](syscara/) | Syscara REST API | HTTP Basic | Vehicle sales listings |
 
 ## Using a connector
 

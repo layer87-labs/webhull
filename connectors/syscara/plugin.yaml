@@ -1,0 +1,89 @@
+# webhull plugin manifest — Syscara sales inventory.
+# See README.md in this directory for setup instructions, and
+# https://github.com/layer87-labs/webhull/blob/main/docs/webhull/features/plugins.md
+# for the full plugin manifest reference.
+#
+# Fetches a dealer's public sales listings from the Syscara REST API and
+# renders them as an HTML fragment. The API needs HTTP Basic credentials
+# issued by Syscara; they come from the environment, never from this file.
+apiVersion: webhull.layer87.de/v1
+kind: HTTPDataSource
+name: syscara
+
+source:
+  # /sale/ads/ is the public selection of /sale/vehicles/ — only listings
+  # the dealer marked for publication. The response is an object keyed by
+  # listing id, in the dealer's order.
+  url: https://api.syscara.com/sale/ads/
+  auth:
+    basic:
+      username: "${SYSCARA_USER}"
+      password: "${SYSCARA_PASSWORD}"
+  timeout: 10s
+  refreshInterval: 15m
+  staleWhileError: 24h
+
+select:
+  fields:
+    # Deliberately excluded, although the API returns them: purchase,
+    # list, base and B2B prices, discounts, accounting data, the internal
+    # identifiers, the seller and the store address. Only what the vendor's
+    # own public widget shows is allowlisted here.
+    - id
+    - condition            # NEW | USED
+    - type                 # e.g. "Reisemobil", "Wohnwagen"
+    - typeof               # e.g. "Teilintegriert"
+    - model.producer
+    - model.series
+    - model.model
+    - model.model_add
+    - model.modelyear
+    - date.registration    # first registration, YYYY-MM-DD
+    - mileage              # km
+    - engine.kw
+    - engine.ps
+    - engine.fuel
+    - engine.gear          # MANUAL | AUTOMATIC
+    - dimensions.length    # cm
+    - dimensions.width
+    - dimensions.height
+    - weights.total        # kg, gross vehicle weight
+    - seats
+    - beds.num
+    - beds.beds            # [{type, size}]
+    - features             # ["isofix", "separate_shower", ...]
+    - prices.offer         # the selling price the widget shows
+    - prices.vat
+    - texts.description    # HTML <ul><li> of equipment, read as text client-side
+    - media                # [{id, group, type}] — resolved to image URLs below
+
+# The listing only references images by media id. One batch request per
+# listing resolves all of them to public CDN URLs, in the listing's order.
+enrich:
+  source:
+    idField: "media[].id"
+    url: https://api.syscara.com/data/media/
+    query:
+      media_id: "[{media[].id}]"
+      file: path
+    auth:
+      basic:
+        username: "${SYSCARA_USER}"
+        password: "${SYSCARA_PASSWORD}"
+    timeout: 10s
+    maxConcurrency: 3
+  select:
+    as: images
+    fields:
+      - id
+      - file               # https://cdn.syscara.com/…/1500.jpg — also served as sm, 250, 500
+
+render:
+  template: sale.tmpl.html
+  into:
+    page: verkauf
+    contentKey: sale
+
+csp:
+  imgSrc:
+    - https://cdn.syscara.com

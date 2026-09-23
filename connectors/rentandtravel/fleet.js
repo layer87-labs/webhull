@@ -276,7 +276,7 @@
     dialog.showModal();
   }
 
-  document.querySelectorAll(".fleet-card-link").forEach(function (btn) {
+  document.querySelectorAll(".fleet-card-link[data-vehicle]").forEach(function (btn) {
     btn.addEventListener("click", function () {
       try {
         openDialog(JSON.parse(btn.getAttribute("data-vehicle")));
