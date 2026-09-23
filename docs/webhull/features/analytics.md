@@ -70,6 +70,10 @@ Whenever client-side tracking is *not* active — no decision yet, `analytics` r
 
 The two paths are mutually exclusive: as soon as `analytics` consent is given, server-side tracking stops and the client script takes over, so pageviews are never counted twice.
 
+Server-side tracking excludes bots and monitoring clients by `User-Agent` before an event ever reaches a provider — otherwise every health check, uptime monitor and search-engine crawler would be counted as a visitor, and in practice those dwarf real traffic (a probe hitting the site once a minute produces far more "pageviews" than people do). Only `GET` requests that render a full page count; `HEAD` requests and pages served from cache with `304 Not Modified` never do. An empty `User-Agent` is treated the same as a known bot. The same filter also applies to the client-side event proxy (`POST /api/event`, `POST /api/events`), so a script or probe calling that endpoint directly is not counted either.
+
+To make sure your own monitoring is excluded, send a `User-Agent` containing one of the recognized patterns — for example `curl`, `wget`, `python-requests`, `go-http-client`, `blackbox-exporter`, `uptimerobot`, `kube-probe`, `pingdom`, `statuscake`, `betteruptime`, or `site24x7`. Most HTTP client libraries and monitoring tools already send one of these by default.
+
 ## Consent integration
 
 Analytics is gated twice, on purpose. The server does not render either script tag without accepted `analytics` consent, and `/static/js/analytics.js` re-checks the consent cookie before sending any event — so a stale page that was cached with the script in it still stops tracking once consent is withdrawn.

@@ -214,17 +214,38 @@ type BotDetector struct {
 func NewBotDetector() *BotDetector {
 	return &BotDetector{
 		patterns: []string{
+			// Search-engine and SEO crawlers.
 			"googlebot", "bingbot", "baiduspider", "yandex",
 			"ahrefs", "semrush", "crawler", "spider", "bot",
 			"mj12bot", "dotbot", "petalbot", "serpstatbot",
 			"facebookexternalhit", "twitterbot", "linkedinbot",
 			"slurp", "duckduckbot", "ia_archiver",
+			// Monitoring / uptime probes — the actual source of most
+			// "visits" with no browser behind them: a health check hitting
+			// the site every minute, forever. See #32.
+			"blackbox-exporter", "uptimerobot", "kube-probe",
+			"prometheus", "pingdom", "statuscake", "betteruptime",
+			"better uptime", "site24x7",
+			// Generic HTTP client / scripting libraries. "java/" (with the
+			// slash Apache HttpClient's UA always includes, e.g.
+			// "Java/17.0.2") deliberately does not match "javascript" in a
+			// real browser's User-Agent.
+			"curl", "wget", "go-http-client", "python-requests",
+			"python-urllib", "aiohttp", "axios", "node-fetch",
+			"okhttp", "java/", "libwww", "httpclient",
+			// Headless / automated browsers used for scraping and checks.
+			"headlesschrome", "lighthouse",
 		},
 	}
 }
 
-// IsBot checks if the user agent belongs to a known bot.
+// IsBot checks if the user agent belongs to a known bot, monitoring probe,
+// or HTTP client. An empty User-Agent is treated as a bot: no legitimate
+// browser omits it, and it is exactly what a bare monitoring script sends.
 func (d *BotDetector) IsBot(userAgent string) bool {
+	if userAgent == "" {
+		return true
+	}
 	ua := strings.ToLower(userAgent)
 	for _, pattern := range d.patterns {
 		if strings.Contains(ua, pattern) {

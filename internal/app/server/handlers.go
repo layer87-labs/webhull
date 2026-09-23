@@ -58,7 +58,7 @@ func (s *Server) handleRootPage() gin.HandlerFunc {
 		c.SetCookie(i18n.CookieName, page.Language.String(), 30*24*3600, "/", "", true, false)
 
 		consentState := consent.StateFromContext(c)
-		data := s.buildPageData(page, consentState)
+		data := s.buildPageData(page, consentState, c.Request.UserAgent())
 
 		html, err := renderTemplate(c.Request.Context(), page.Template, data)
 		if err != nil {
@@ -79,13 +79,18 @@ func (s *Server) handleRootPage() gin.HandlerFunc {
 
 		c.Data(http.StatusOK, "text/html; charset=utf-8", html)
 
-		s.Analytics.TrackServerSide(
-			consentState,
-			s.cfg.Site.BaseURL+"/",
-			c.ClientIP(),
-			c.Request.UserAgent(),
-			c.GetHeader("Accept-Language"),
-		)
+		// Only a GET that actually returned a body counts as a pageview —
+		// HEAD requests (registered on this same handler) get headers only,
+		// and the 304 path above already returned before this point.
+		if c.Request.Method == http.MethodGet {
+			s.Analytics.TrackServerSide(
+				consentState,
+				s.cfg.Site.BaseURL+"/",
+				c.ClientIP(),
+				c.Request.UserAgent(),
+				c.GetHeader("Accept-Language"),
+			)
+		}
 	}
 }
 
@@ -110,7 +115,7 @@ func (s *Server) handlePage(slug string) gin.HandlerFunc {
 
 		// Build template data
 		consentState := consent.StateFromContext(c)
-		data := s.buildPageData(page, consentState)
+		data := s.buildPageData(page, consentState, c.Request.UserAgent())
 
 		// Render the page template
 		html, err := renderTemplate(c.Request.Context(), page.Template, data)
@@ -136,14 +141,19 @@ func (s *Server) handlePage(slug string) gin.HandlerFunc {
 
 		c.Data(http.StatusOK, "text/html; charset=utf-8", html)
 
-		// Server-side pageview tracking (when client-side JS is not active)
-		s.Analytics.TrackServerSide(
-			consentState,
-			s.cfg.Site.BaseURL+"/"+slug,
-			c.ClientIP(),
-			c.Request.UserAgent(),
-			c.GetHeader("Accept-Language"),
-		)
+		// Server-side pageview tracking (when client-side JS is not active).
+		// Only a GET that actually returned a body counts — HEAD requests
+		// (registered on this same handler) get headers only, and the 304
+		// path above already returned before this point.
+		if c.Request.Method == http.MethodGet {
+			s.Analytics.TrackServerSide(
+				consentState,
+				s.cfg.Site.BaseURL+"/"+slug,
+				c.ClientIP(),
+				c.Request.UserAgent(),
+				c.GetHeader("Accept-Language"),
+			)
+		}
 	}
 }
 
@@ -157,7 +167,7 @@ func (s *Server) handleRedirect(rule redirects.Rule) gin.HandlerFunc {
 }
 
 // buildPageData assembles the complete view model for a page.
-func (s *Server) buildPageData(page *pages.Page, consentState *consent.State) *templates.PageData {
+func (s *Server) buildPageData(page *pages.Page, consentState *consent.State, userAgent string) *templates.PageData {
 	meta := s.SEO.BuildMetaTags(page)
 	header := s.Navigation.ResolveHeader(page.Language, page.Slug)
 	footer := s.Navigation.ResolveFooter(page.Language, page.Slug)
@@ -212,7 +222,7 @@ func (s *Server) buildPageData(page *pages.Page, consentState *consent.State) *t
 		UI:             s.resolveUI(page.Language),
 		Analytics:      analyticsData,
 		ErrorTracking:  errorTracking,
-		IsBot:          s.Bot.IsBot(""), // will be set per-request below
+		IsBot:          s.Bot.IsBot(userAgent),
 		ContactEnabled: s.cfg.Contact.Enabled,
 		PluginContent:  pluginContent,
 		Assets:         s.Assets,
@@ -345,6 +355,14 @@ func (s *Server) handlePlausibleEvent() gin.HandlerFunc {
 		// Check analytics consent
 		consentState := consent.StateFromContext(c)
 		if consentState != nil && !consentState.IsAllowed("analytics") {
+			c.JSON(http.StatusOK, gin.H{"status": "skipped"})
+			return
+		}
+
+		// Cheap bot/monitoring-client filter, same check as the server-side
+		// fallback. Only a real browser runs the JS that normally posts
+		// here, but a probe can send this request by hand too.
+		if s.Bot.IsBot(c.Request.UserAgent()) {
 			c.JSON(http.StatusOK, gin.H{"status": "skipped"})
 			return
 		}
