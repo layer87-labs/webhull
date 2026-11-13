@@ -5,6 +5,9 @@
 #
 # All ${VAR:default} references are expanded at runtime from environment variables.
 # All sections below have sane defaults — only override what you need.
+#
+# Upgrading from 1.x: see docs/webhull/reference/upgrading-to-2.md
+# (server.trustedProxies, auto-reply placeholders, contact form limits).
 
 # ── Server ────────────────────────────────────────────────────────────────────
 # Defaults: port 8080, host 0.0.0.0, timeouts 15s/15s/60s/30s, cache 1h/1y
