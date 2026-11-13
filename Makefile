@@ -24,8 +24,7 @@ GO_FILES := $(shell find . -name "*.go" -not -name "*_templ.go" -not -path "./ve
 
 ## generate: regenerate templ templates
 generate:
-	@command -v templ > /dev/null 2>&1 || go install github.com/a-h/templ/cmd/templ@latest
-	@templ generate
+	@go run github.com/a-h/templ/cmd/templ@$$(go list -m -f '{{.Version}}' github.com/a-h/templ) generate
 
 # ── Formatting ───────────────────────────────────────────────────────────────
 
