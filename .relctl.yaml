@@ -1,0 +1,2 @@
+# default becomes major in relctl 3.0.0
+breaking_markers: major
