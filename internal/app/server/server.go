@@ -114,8 +114,9 @@ func New(cfg *config.SiteConfig, logger *zap.Logger) (*Server, error) {
 
 		healthAddr := fmt.Sprintf("%s:%d", cfg.Health.Host, cfg.Health.Port)
 		s.healthSrv = &http.Server{
-			Addr:    healthAddr,
-			Handler: mux,
+			Addr:              healthAddr,
+			Handler:           mux,
+			ReadHeaderTimeout: 5 * time.Second,
 		}
 		if cfg.Health.Timeout > 0 {
 			s.healthSrv.ReadTimeout = cfg.Health.Timeout
@@ -559,6 +560,8 @@ func (s *Server) Start() error {
 		ReadTimeout:  s.cfg.Server.ReadTimeout,
 		WriteTimeout: s.cfg.Server.WriteTimeout,
 		IdleTimeout:  s.cfg.Server.IdleTimeout,
+		// Bounds header reads even when readTimeout is set to 0.
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 
 	// Start health server (if enabled)
