@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -76,6 +77,17 @@ func New(cfg *config.SiteConfig, logger *zap.Logger) (*Server, error) {
 
 	router := gin.New()
 
+	// Gin trusts every peer's forwarding headers unless told otherwise.
+	// An empty list trusts none: the client IP is the TCP peer address.
+	if err := router.SetTrustedProxies(cfg.Server.TrustedProxies); err != nil {
+		return nil, fmt.Errorf("server.trustedProxies: %w", err)
+	}
+	// Only X-Forwarded-For is read from trusted proxies. Gin's default also
+	// reads X-Real-IP, which a proxy that does not set it passes through
+	// from the client unchanged.
+	router.RemoteIPHeaders = []string{"X-Forwarded-For"}
+	router.TrustedPlatform = cfg.Server.TrustedPlatform
+
 	s := &Server{
 		cfg:    cfg,
 		router: router,
@@ -102,8 +114,9 @@ func New(cfg *config.SiteConfig, logger *zap.Logger) (*Server, error) {
 
 		healthAddr := fmt.Sprintf("%s:%d", cfg.Health.Host, cfg.Health.Port)
 		s.healthSrv = &http.Server{
-			Addr:    healthAddr,
-			Handler: mux,
+			Addr:              healthAddr,
+			Handler:           mux,
+			ReadHeaderTimeout: 5 * time.Second,
 		}
 		if cfg.Health.Timeout > 0 {
 			s.healthSrv.ReadTimeout = cfg.Health.Timeout
@@ -380,6 +393,9 @@ func (s *Server) setupMiddleware() {
 	}
 
 	s.router.Use(gin.Recovery())
+	if len(s.cfg.Server.TrustedProxies) == 0 && s.cfg.Server.TrustedPlatform == "" {
+		s.router.Use(s.warnUntrustedForwarding())
+	}
 	s.router.Use(middleware.GzipMiddleware())
 	s.router.Use(middleware.LoggingMiddleware(s.logger, 1*time.Second))
 	s.router.Use(middleware.CacheMiddleware(s.cfg.Server.CacheMaxAge, s.cfg.Server.StaticCacheMaxAge))
@@ -544,6 +560,8 @@ func (s *Server) Start() error {
 		ReadTimeout:  s.cfg.Server.ReadTimeout,
 		WriteTimeout: s.cfg.Server.WriteTimeout,
 		IdleTimeout:  s.cfg.Server.IdleTimeout,
+		// Bounds header reads even when readTimeout is set to 0.
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 
 	// Start health server (if enabled)
@@ -664,4 +682,20 @@ func defaultPath(path, fallback string) string {
 		return "/" + path
 	}
 	return path
+}
+
+// warnUntrustedForwarding logs once when a request carries X-Forwarded-For
+// while no proxy is trusted: behind a reverse proxy, every visitor then shares
+// the proxy's address for rate limiting until server.trustedProxies is set.
+func (s *Server) warnUntrustedForwarding() gin.HandlerFunc {
+	var once sync.Once
+	return func(c *gin.Context) {
+		if c.Request.Header.Get("X-Forwarded-For") != "" {
+			once.Do(func() {
+				s.logger.Warn("X-Forwarded-For ignored: server.trustedProxies is empty, the client IP is the peer address",
+					zap.String("peer", c.RemoteIP()))
+			})
+		}
+		c.Next()
+	}
 }

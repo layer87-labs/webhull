@@ -183,6 +183,15 @@ func applyDefaults(cfg *SiteConfig) {
 	if cfg.Contact.RateLimit.Window == 0 {
 		cfg.Contact.RateLimit.Window = 15 * time.Minute
 	}
+	if cfg.Contact.AutoReplyRateLimit.Requests == 0 {
+		cfg.Contact.AutoReplyRateLimit.Requests = DefaultAutoReplyRequests
+	}
+	if cfg.Contact.AutoReplyRateLimit.Window == 0 {
+		cfg.Contact.AutoReplyRateLimit.Window = DefaultAutoReplyWindow
+	}
+	if cfg.Contact.MaxBodyBytes == 0 {
+		cfg.Contact.MaxBodyBytes = DefaultContactMaxBodyBytes
+	}
 
 	// ── Mail defaults ────────────────────────────────────────────────────────
 	if cfg.Mail.Port == 0 {
