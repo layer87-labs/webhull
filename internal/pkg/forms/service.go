@@ -6,8 +6,10 @@ import (
 	"encoding/hex"
 	"fmt"
 	"html"
+	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"go.uber.org/zap"
 
@@ -24,8 +26,16 @@ type Service struct {
 	spam    *SpamFilter
 	email   *EmailValidator
 	limiter *security.RateLimiter
-	logger  *zap.Logger
+	// autoReplyLimiter caps auto-replies across all clients under one key.
+	autoReplyLimiter *security.RateLimiter
+	logger           *zap.Logger
 }
+
+// autoReplyKey is the single identifier of the global auto-reply limiter.
+const autoReplyKey = "auto-reply"
+
+// fieldPlaceholder matches any {{FIELD}} placeholder in an auto-reply template.
+var fieldPlaceholder = regexp.MustCompile(`\{\{[A-Z0-9_]+\}\}`)
 
 // NewService creates a new form service.
 func NewService(
@@ -35,6 +45,23 @@ func NewService(
 	limiter *security.RateLimiter,
 	logger *zap.Logger,
 ) *Service {
+	replyLimit := cfg.AutoReplyRateLimit
+	if replyLimit.Requests <= 0 {
+		replyLimit.Requests = config.DefaultAutoReplyRequests
+	}
+	if replyLimit.Window <= 0 {
+		replyLimit.Window = config.DefaultAutoReplyWindow
+	}
+
+	for lang, tmpl := range mailCfg.Templates {
+		for _, p := range fieldPlaceholder.FindAllString(tmpl.Body, -1) {
+			if p != "{{CONTACT_ID}}" {
+				logger.Warn("auto-reply template placeholder is no longer filled; only {{CONTACT_ID}} is supported",
+					zap.String("lang", lang), zap.String("placeholder", p))
+			}
+		}
+	}
+
 	return &Service{
 		cfg:     cfg,
 		mailCfg: mailCfg,
@@ -42,7 +69,12 @@ func NewService(
 		spam:    NewSpamFilter(),
 		email:   NewEmailValidator(),
 		limiter: limiter,
-		logger:  logger,
+		autoReplyLimiter: security.NewRateLimiter(security.RateLimitConfig{
+			Limit:       replyLimit.Requests,
+			Window:      replyLimit.Window,
+			CleanupTick: replyLimit.Window,
+		}, logger),
+		logger: logger,
 	}
 }
 
@@ -66,6 +98,12 @@ func (s *Service) Submit(ctx context.Context, req ContactRequest, ip, userAgent 
 			}
 		}
 		req.Fields = allowed
+	} else {
+		for name, v := range req.Fields {
+			if utf8.RuneCountInString(v) > config.DefaultTextareaMaxLength {
+				return &ContactResponse{Success: false, Message: "field too long: " + name}, nil
+			}
+		}
 	}
 
 	// Rate limit check
@@ -73,12 +111,18 @@ func (s *Service) Submit(ctx context.Context, req ContactRequest, ip, userAgent 
 		return &ContactResponse{Success: false, Message: "too many requests"}, fmt.Errorf("rate limit exceeded")
 	}
 
-	// Validate required fields and collect email value
+	// Validate required fields and lengths, collect email value
 	var emailVal string
 	for _, def := range fieldDefs {
 		val := strings.TrimSpace(req.Fields[def.Name])
 		if def.Required && val == "" {
 			return &ContactResponse{Success: false, Message: "invalid request"}, nil
+		}
+		if utf8.RuneCountInString(val) > def.EffectiveMaxLength() {
+			return &ContactResponse{Success: false, Message: "field too long: " + def.Name}, nil
+		}
+		if def.Type == "email" && strings.ContainsAny(req.Fields[def.Name], "\r\n") {
+			return &ContactResponse{Success: false, Message: "invalid email address"}, nil
 		}
 		if def.Type == "email" && emailVal == "" {
 			emailVal = val
@@ -87,6 +131,9 @@ func (s *Service) Submit(ctx context.Context, req ContactRequest, ip, userAgent 
 
 	// Email validation (first email-type field)
 	if emailVal == "" {
+		if strings.ContainsAny(req.Fields["email"], "\r\n") {
+			return &ContactResponse{Success: false, Message: "invalid email address"}, nil
+		}
 		emailVal = strings.TrimSpace(req.Fields["email"])
 	}
 	if err := s.email.ValidateEmail(emailVal); err != nil {
@@ -135,11 +182,17 @@ func (s *Service) Submit(ctx context.Context, req ContactRequest, ip, userAgent 
 			}
 		}
 
-		// Auto-reply to contact
+		// Auto-reply to the validated address. It goes to an address anyone
+		// can enter, so it carries a fixed text and the reference only.
 		if tmpl, ok := s.mailCfg.Templates[lang.String()]; ok {
-			body := s.renderAutoReply(tmpl.Body, contactID, req)
+			if !s.autoReplyLimiter.IsAllowed(autoReplyKey) {
+				s.logger.Warn("auto-reply skipped: contact.autoReplyRateLimit reached",
+					zap.String("contactID", contactID))
+				return
+			}
+			body := renderAutoReply(tmpl.Body, contactID)
 			subject := fmt.Sprintf("%s - Ref: %s", tmpl.Subject, contactID)
-			if err := s.mailer.SendHTML(req.Fields["email"], subject, body); err != nil {
+			if err := s.mailer.SendHTML(emailVal, subject, body); err != nil {
 				s.logger.Warn("failed to send auto-reply",
 					zap.String("contactID", contactID),
 					zap.String("email", safeEmailVal),
@@ -181,23 +234,11 @@ func generateContactID() string {
 	return hex.EncodeToString(b)
 }
 
-// renderAutoReply injects values into the mail template.
-// Placeholder format: {{FIELD_NAME_UPPER}} for any field (e.g. {{NAME}}, {{MESSAGE}}).
-// {{CONTACT_ID}} is always available.
-func (s *Service) renderAutoReply(template string, contactID string, req ContactRequest) string {
-	replacements := map[string]string{
-		"{{CONTACT_ID}}": html.EscapeString(contactID),
-	}
-	for k, v := range req.Fields {
-		escaped := html.EscapeString(v)
-		escaped = strings.ReplaceAll(escaped, "\n", "<br>")
-		replacements["{{"+strings.ToUpper(k)+"}}"] = escaped
-	}
-	result := template
-	for placeholder, value := range replacements {
-		result = strings.ReplaceAll(result, placeholder, value)
-	}
-	return result
+// renderAutoReply fills {{CONTACT_ID}} and removes every other placeholder.
+// Submitted field values are never copied into the auto-reply.
+func renderAutoReply(template string, contactID string) string {
+	body := strings.ReplaceAll(template, "{{CONTACT_ID}}", html.EscapeString(contactID))
+	return fieldPlaceholder.ReplaceAllString(body, "")
 }
 
 // buildNotificationBodies renders the site-owner notification as both plain text and HTML.

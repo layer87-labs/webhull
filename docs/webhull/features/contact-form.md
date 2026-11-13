@@ -64,7 +64,7 @@ The form collects:
 
 ## Rate limiting
 
-Submissions are rate-limited per IP address. Defaults: 3 requests per 15-minute window. Configure via `contact.rateLimit`:
+Submissions are rate-limited per client IP address. Defaults: 3 requests per 15-minute window. Behind a reverse proxy, set `server.trustedProxies` so the client IP is read from the proxy's forwarding header (see [Configuration](../reference/configuration.md#running-behind-a-reverse-proxy)). Configure the limit via `contact.rateLimit`:
 
 ```yaml
 contact:
@@ -72,6 +72,10 @@ contact:
     requests: 5
     window: 30m
 ```
+
+## Input limits
+
+Request bodies over `contact.maxBodyBytes` (default 32 KiB) get `413`. Each field accepts at most `maxLength` characters, set per field; the default is 5000 for `textarea` and 256 for other types. Email values containing line breaks are rejected.
 
 ## Spam filter
 
@@ -96,15 +100,18 @@ mail:
     en:
       subject: "We received your message"
       body: |
-        <p>Hi {{.Name}},</p>
+        <p>Hello,</p>
         <p>Thank you for getting in touch. We will reply within one business day.</p>
+        <p>Your reference: {{CONTACT_ID}}</p>
         <p>Acme Corp</p>
     de:
       subject: "Ihre Nachricht ist angekommen"
       bodyFile: "mail/auto-reply-de.html"   # load from file instead of inline
 ```
 
-`bodyFile` is resolved relative to the config file directory. The template variables available are `{{.Name}}`, `{{.Email}}`, `{{.Subject}}`, `{{.Message}}`.
+`bodyFile` is resolved relative to the config file directory. The only placeholder is `{{CONTACT_ID}}`, the reference number. The auto-reply goes to the address entered in the form, so it never contains submitted field values; other placeholders such as `{{NAME}}` or `{{MESSAGE}}` are removed, and webhull logs a warning at startup for each one. The full submission only goes to `contact.recipients`.
+
+Auto-replies are capped across all visitors by `contact.autoReplyRateLimit` (default 20 per hour). Over the cap, the submission still reaches the recipients; only the auto-reply is skipped.
 
 ## Customising form labels
 

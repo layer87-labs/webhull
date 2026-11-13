@@ -196,6 +196,20 @@ type FieldConfig struct {
 	// Options lists the selectable values for type "select".
 	// Each entry is the option value (also used as display label).
 	Options []string `yaml:"options,omitempty"`
+	// MaxLength is the maximum number of characters the server accepts for
+	// this field. 0 uses the default: 5000 for "textarea", 256 otherwise.
+	MaxLength int `yaml:"maxLength,omitempty"`
+}
+
+// EffectiveMaxLength returns MaxLength or the type-based default.
+func (f FieldConfig) EffectiveMaxLength() int {
+	if f.MaxLength > 0 {
+		return f.MaxLength
+	}
+	if f.Type == "textarea" {
+		return DefaultTextareaMaxLength
+	}
+	return DefaultFieldMaxLength
 }
 
 // PageConfig defines a single page with all language variants.
@@ -289,7 +303,26 @@ type ContactConfig struct {
 	Subject       map[string]string `yaml:"subject"`    // per-language subject template
 	MaxLinks      int               `yaml:"maxLinks"`
 	RateLimit     RateLimitConfig   `yaml:"rateLimit"`
+
+	// AutoReplyRateLimit caps auto-reply mails to visitors across all
+	// clients, independent of the per-IP RateLimit. Submissions over the cap
+	// are still delivered to Recipients; only the auto-reply is skipped.
+	AutoReplyRateLimit RateLimitConfig `yaml:"autoReplyRateLimit"`
+
+	// MaxBodyBytes limits the size of a submission request body.
+	// Larger requests are rejected with 413.
+	MaxBodyBytes int64 `yaml:"maxBodyBytes"`
 }
+
+// Contact form defaults, applied by the loader and as fallback by the
+// form service and handler when a config was built without the loader.
+const (
+	DefaultContactMaxBodyBytes int64 = 32 << 10
+	DefaultAutoReplyRequests         = 20
+	DefaultAutoReplyWindow           = time.Hour
+	DefaultTextareaMaxLength         = 5000
+	DefaultFieldMaxLength            = 256
+)
 
 // RateLimitConfig defines rate limiting parameters.
 type RateLimitConfig struct {
@@ -419,6 +452,18 @@ type ServerConfig struct {
 
 	// HSTS extends the Strict-Transport-Security header sent in production.
 	HSTS HSTSConfig `yaml:"hsts"`
+
+	// TrustedProxies lists the IPs or CIDRs of reverse proxies whose
+	// X-Forwarded-For / X-Real-IP headers are used to determine the client
+	// IP (rate limits, logs, analytics). Empty trusts no proxy: the headers
+	// are ignored and the TCP peer address is the client IP.
+	TrustedProxies []string `yaml:"trustedProxies"`
+
+	// TrustedPlatform names a header set by the hosting platform that
+	// carries the client IP (for example "CF-Connecting-IP"). It is read
+	// regardless of TrustedProxies, so only set it when every request
+	// passes through that platform and clients cannot set the header.
+	TrustedPlatform string `yaml:"trustedPlatform"`
 }
 
 // HSTSConfig extends Strict-Transport-Security beyond the plain max-age.

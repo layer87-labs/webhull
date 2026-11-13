@@ -12,6 +12,10 @@
 #   port: "${PORT:8080}"
 #   environment: "${ENVIRONMENT:production}"
 #   staticDir: "static"
+#   # Behind a reverse proxy / ingress: list its addresses so the client IP is
+#   # read from X-Forwarded-For. Empty (default) trusts no proxy.
+#   trustedProxies:
+#     - "10.0.0.0/8"
 
 # ── Health ────────────────────────────────────────────────────────────────────
 # Defaults: enabled, port 8082, /health, /ready, /metrics, 5s timeout
@@ -31,12 +35,17 @@ mail:
 
 # ── Contact ───────────────────────────────────────────────────────────────────
 # enabled is set in pages.yaml. Only operational params here.
-# Defaults: maxLinks 2, rateLimit 3 req / 15 min
+# Defaults: maxLinks 2, rateLimit 3 req / 15 min per client IP,
+# autoReplyRateLimit 20 / 1h across all visitors, maxBodyBytes 32 KiB
 # contact:
 #   maxLinks: 2
 #   rateLimit:
 #     requests: 3
 #     window: 15m
+#   autoReplyRateLimit:
+#     requests: 20
+#     window: 1h
+#   maxBodyBytes: 32768
 
 # ── Gate (optional) ──────────────────────────────────────────────────────────
 # gate:

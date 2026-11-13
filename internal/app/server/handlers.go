@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -232,8 +233,22 @@ func (s *Server) buildPageData(page *pages.Page, consentState *consent.State, us
 // handleContact processes contact form submissions.
 func (s *Server) handleContact() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		maxBody := s.cfg.Contact.MaxBodyBytes
+		if maxBody <= 0 {
+			maxBody = config.DefaultContactMaxBodyBytes
+		}
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxBody)
+
 		var req forms.ContactRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
+			var tooLarge *http.MaxBytesError
+			if errors.As(err, &tooLarge) {
+				c.JSON(http.StatusRequestEntityTooLarge, forms.ContactResponse{
+					Success: false,
+					Message: "request too large",
+				})
+				return
+			}
 			c.JSON(http.StatusBadRequest, forms.ContactResponse{
 				Success: false,
 				Message: "invalid request",

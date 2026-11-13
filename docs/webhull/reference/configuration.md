@@ -216,6 +216,8 @@ server:
   staticDir: "static"
   cacheMaxAge: 1h
   staticCacheMaxAge: 8760h
+  trustedProxies: []        # e.g. ["10.0.0.0/8"] behind a reverse proxy
+  trustedPlatform: ""       # e.g. "CF-Connecting-IP"
 ```
 
 | Field | Type | Default | Description |
@@ -230,6 +232,20 @@ server:
 | `staticDir` | string | — | Path to the static files directory. Served at `/static/*`. |
 | `cacheMaxAge` | duration | — | `Cache-Control: max-age` for rendered HTML pages. |
 | `staticCacheMaxAge` | duration | — | `Cache-Control: max-age` for static assets. Typically set to 1 year (`8760h`) — cache-busting is handled via content-hash query params. |
+| `trustedProxies` | []string | `[]` | IPs or CIDRs of reverse proxies whose `X-Forwarded-For` / `X-Real-IP` headers determine the client IP (rate limits, logs, analytics). Empty trusts no proxy: the headers are ignored and the TCP peer address is used. An invalid entry fails startup. |
+| `trustedPlatform` | string | — | Header set by the hosting platform that carries the client IP (for example `CF-Connecting-IP`). Read regardless of `trustedProxies`; set it only when every request passes through that platform. |
+
+### Running behind a reverse proxy
+
+With the default empty `trustedProxies`, webhull uses the address of the TCP peer as the client IP. Behind a reverse proxy or ingress controller that peer is the proxy, so all visitors share one rate-limit bucket. List the proxy's addresses so webhull reads the client IP from the forwarding header set by that proxy:
+
+```yaml
+server:
+  trustedProxies:
+    - "10.0.0.0/8"     # address range of the ingress controller
+```
+
+List only addresses that belong to your proxies. The proxy must overwrite or append to `X-Forwarded-For`; webhull walks the header from the right and stops at the first address that is not a trusted proxy. When a forwarding header arrives while `trustedProxies` is empty, webhull logs one warning.
 
 ---
 
@@ -279,6 +295,10 @@ contact:
   rateLimit:
     requests: 3
     window: 15m
+  autoReplyRateLimit:
+    requests: 20
+    window: 1h
+  maxBodyBytes: 32768
 ```
 
 | Field | Type | Default | Description |
@@ -290,6 +310,11 @@ contact:
 | `maxLinks` | int | `2` | Messages containing more URLs than this are rejected as spam. |
 | `rateLimit.requests` | int | `3` | Maximum form submissions per window per IP. |
 | `rateLimit.window` | duration | `15m` | Rate limit window. |
+| `autoReplyRateLimit.requests` | int | `20` | Maximum auto-reply mails per window across all visitors. Over the cap, submissions still reach `recipients`; only the auto-reply is skipped. |
+| `autoReplyRateLimit.window` | duration | `1h` | Auto-reply cap window. |
+| `maxBodyBytes` | int | `32768` | Maximum request body size of a submission. Larger requests get `413`. |
+
+Each form field accepts at most `maxLength` characters (see `ui.<lang>.contactForm.fields`); the default is 5000 for `textarea` and 256 for other types. Longer values get `400` with `field too long: <name>`.
 
 See [Contact Form](../features/contact-form.md) for auto-reply templates and label customisation.
 
@@ -309,7 +334,7 @@ mail:
   templates:
     en:
       subject: "We received your message"
-      body: "<p>Thank you, {{.Name}}.</p>"
+      body: "<p>Thank you for your message. Reference: {{CONTACT_ID}}</p>"
     de:
       subject: "Ihre Nachricht ist angekommen"
       bodyFile: "mail/auto-reply-de.html"
