@@ -82,6 +82,10 @@ func New(cfg *config.SiteConfig, logger *zap.Logger) (*Server, error) {
 	if err := router.SetTrustedProxies(cfg.Server.TrustedProxies); err != nil {
 		return nil, fmt.Errorf("server.trustedProxies: %w", err)
 	}
+	// Only X-Forwarded-For is read from trusted proxies. Gin's default also
+	// reads X-Real-IP, which a proxy that does not set it passes through
+	// from the client unchanged.
+	router.RemoteIPHeaders = []string{"X-Forwarded-For"}
 	router.TrustedPlatform = cfg.Server.TrustedPlatform
 
 	s := &Server{

@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -295,4 +296,80 @@ func TestContact_AutoReplyGlobalCap(t *testing.T) {
 	if notifications != 3 || replies != 2 {
 		t.Fatalf("notifications = %d, auto-replies = %d, want 3 and 2", notifications, replies)
 	}
+}
+
+// postContactFrom sends a contact submission from peer with the given
+// forwarding headers (empty values are omitted).
+func postContactFrom(srv *Server, peer, forwardedFor, realIP string) int {
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/contact", strings.NewReader(contactBody(validFields())))
+	req.Header.Set("Content-Type", "application/json")
+	req.RemoteAddr = peer
+	if forwardedFor != "" {
+		req.Header.Set("X-Forwarded-For", forwardedFor)
+	}
+	if realIP != "" {
+		req.Header.Set("X-Real-IP", realIP)
+	}
+	srv.Router().ServeHTTP(rec, req)
+	return rec.Code
+}
+
+// assertFourthLimited sends four submissions whose forwarding headers differ
+// and expects the fourth to be rate limited: the headers must not have
+// changed the client identity.
+func assertFourthLimited(t *testing.T, srv *Server, send func(i int) int) {
+	t.Helper()
+	codes := []int{send(1), send(2), send(3), send(4)}
+	want := []int{200, 200, 200, 429}
+	for i := range want {
+		if codes[i] != want[i] {
+			t.Fatalf("status codes = %v, want %v", codes, want)
+		}
+	}
+}
+
+func TestContact_ForwardedForFromUntrustedPeerIgnored(t *testing.T) {
+	cfg := contactConfig(t)
+	cfg.Server.TrustedProxies = []string{"192.0.2.0/24"}
+	srv, _ := newContactServer(t, cfg)
+
+	assertFourthLimited(t, srv, func(i int) int {
+		return postContactFrom(srv, "198.51.100.9:1234", fmt.Sprintf("203.0.113.%d", i), "")
+	})
+}
+
+func TestContact_ForwardedForChainStopsAtUntrustedHop(t *testing.T) {
+	cfg := contactConfig(t)
+	cfg.Server.TrustedProxies = []string{"192.0.2.0/24"}
+	srv, _ := newContactServer(t, cfg)
+
+	// 198.51.100.1 is not a trusted proxy, so it is the client; the entries
+	// left of it are whatever that client chose to send.
+	assertFourthLimited(t, srv, func(i int) int {
+		return postContactFrom(srv, "192.0.2.1:1234", fmt.Sprintf("203.0.113.%d, 198.51.100.1", i), "")
+	})
+}
+
+func TestContact_ForwardedForChainThroughTwoTrustedProxies(t *testing.T) {
+	cfg := contactConfig(t)
+	cfg.Server.TrustedProxies = []string{"192.0.2.0/24", "198.51.100.0/24"}
+	srv, _ := newContactServer(t, cfg)
+
+	for i := 1; i <= 4; i++ {
+		xff := fmt.Sprintf("203.0.113.%d, 198.51.100.1", i)
+		if code := postContactFrom(srv, "192.0.2.1:1234", xff, ""); code != http.StatusOK {
+			t.Fatalf("client 203.0.113.%d: status = %d, want 200", i, code)
+		}
+	}
+}
+
+func TestContact_RealIPHeaderNotUsed(t *testing.T) {
+	cfg := contactConfig(t)
+	cfg.Server.TrustedProxies = []string{"192.0.2.0/24"}
+	srv, _ := newContactServer(t, cfg)
+
+	assertFourthLimited(t, srv, func(i int) int {
+		return postContactFrom(srv, "192.0.2.1:1234", "", fmt.Sprintf("203.0.113.%d", i))
+	})
 }

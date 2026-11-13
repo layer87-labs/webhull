@@ -34,8 +34,9 @@ type Service struct {
 // autoReplyKey is the single identifier of the global auto-reply limiter.
 const autoReplyKey = "auto-reply"
 
-// fieldPlaceholder matches any {{FIELD}} placeholder in an auto-reply template.
-var fieldPlaceholder = regexp.MustCompile(`\{\{[A-Z0-9_]+\}\}`)
+// fieldPlaceholder matches any {{...}} placeholder in an auto-reply template,
+// including forms like {{.Name}} or {{FIRST-NAME}}.
+var fieldPlaceholder = regexp.MustCompile(`\{\{[^{}]*\}\}`)
 
 // NewService creates a new form service.
 func NewService(

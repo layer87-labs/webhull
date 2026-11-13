@@ -454,9 +454,9 @@ type ServerConfig struct {
 	HSTS HSTSConfig `yaml:"hsts"`
 
 	// TrustedProxies lists the IPs or CIDRs of reverse proxies whose
-	// X-Forwarded-For / X-Real-IP headers are used to determine the client
-	// IP (rate limits, logs, analytics). Empty trusts no proxy: the headers
-	// are ignored and the TCP peer address is the client IP.
+	// X-Forwarded-For header determines the client IP (rate limits, logs,
+	// analytics); X-Real-IP is not read. Empty trusts no proxy: the header
+	// is ignored and the TCP peer address is the client IP.
 	TrustedProxies []string `yaml:"trustedProxies"`
 
 	// TrustedPlatform names a header set by the hosting platform that

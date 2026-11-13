@@ -109,7 +109,7 @@ mail:
       bodyFile: "mail/auto-reply-de.html"   # load from file instead of inline
 ```
 
-`bodyFile` is resolved relative to the config file directory. The only placeholder is `{{CONTACT_ID}}`, the reference number. The auto-reply goes to the address entered in the form, so it never contains submitted field values; other placeholders such as `{{NAME}}` or `{{MESSAGE}}` are removed, and webhull logs a warning at startup for each one. The full submission only goes to `contact.recipients`.
+`bodyFile` is resolved relative to the config file directory. The only placeholder is `{{CONTACT_ID}}`, the reference number. The auto-reply goes to the address entered in the form, so it never contains submitted field values; other placeholders such as `{{NAME}}`, `{{MESSAGE}}` or `{{.Name}}` are removed, and webhull logs a warning at startup for each one. The full submission only goes to `contact.recipients`.
 
 Auto-replies are capped across all visitors by `contact.autoReplyRateLimit` (default 20 per hour). Over the cap, the submission still reaches the recipients; only the auto-reply is skipped.
 

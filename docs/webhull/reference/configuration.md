@@ -216,7 +216,7 @@ server:
   staticDir: "static"
   cacheMaxAge: 1h
   staticCacheMaxAge: 8760h
-  trustedProxies: []        # e.g. ["10.0.0.0/8"] behind a reverse proxy
+  trustedProxies: []        # behind a reverse proxy: its address range, e.g. ["192.0.2.0/24"]
   trustedPlatform: ""       # e.g. "CF-Connecting-IP"
 ```
 
@@ -232,7 +232,7 @@ server:
 | `staticDir` | string | — | Path to the static files directory. Served at `/static/*`. |
 | `cacheMaxAge` | duration | — | `Cache-Control: max-age` for rendered HTML pages. |
 | `staticCacheMaxAge` | duration | — | `Cache-Control: max-age` for static assets. Typically set to 1 year (`8760h`) — cache-busting is handled via content-hash query params. |
-| `trustedProxies` | []string | `[]` | IPs or CIDRs of reverse proxies whose `X-Forwarded-For` / `X-Real-IP` headers determine the client IP (rate limits, logs, analytics). Empty trusts no proxy: the headers are ignored and the TCP peer address is used. An invalid entry fails startup. |
+| `trustedProxies` | []string | `[]` | IPs or CIDRs of reverse proxies whose `X-Forwarded-For` header determines the client IP (rate limits, logs, analytics). `X-Real-IP` is not read. Empty trusts no proxy: the header is ignored and the TCP peer address is used. An invalid entry fails startup. |
 | `trustedPlatform` | string | — | Header set by the hosting platform that carries the client IP (for example `CF-Connecting-IP`). Read regardless of `trustedProxies`; set it only when every request passes through that platform. |
 
 ### Running behind a reverse proxy
@@ -242,10 +242,10 @@ With the default empty `trustedProxies`, webhull uses the address of the TCP pee
 ```yaml
 server:
   trustedProxies:
-    - "10.0.0.0/8"     # address range of the ingress controller
+    - "192.0.2.0/24"   # replace with the address range of your ingress controller / load balancer
 ```
 
-List only addresses that belong to your proxies. The proxy must overwrite or append to `X-Forwarded-For`; webhull walks the header from the right and stops at the first address that is not a trusted proxy. When a forwarding header arrives while `trustedProxies` is empty, webhull logs one warning.
+List only the proxies directly in front of webhull, for example the address range of the ingress controller or load balancer, and make sure (for example with a NetworkPolicy) that nothing else can reach webhull directly. Every listed address may set the client IP. Do not list a whole cluster or VPC range: any workload in it could then set `X-Forwarded-For`. The proxy must append to or overwrite `X-Forwarded-For`; webhull walks the header from the right and stops at the first address that is not a trusted proxy. `X-Real-IP` is ignored. When a forwarding header arrives while `trustedProxies` is empty, webhull logs one warning.
 
 ---
 
